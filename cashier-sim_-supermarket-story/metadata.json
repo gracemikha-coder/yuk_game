@@ -1,0 +1,6 @@
+{
+  "name": "Cashier Sim: Supermarket Story",
+  "description": "Casual 3D chibi simulator game: run a cute supermarket checkout counter, dress up your chibi cashier, scan groceries, calculate change, and serve happy customers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

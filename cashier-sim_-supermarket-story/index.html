@@ -1,0 +1,2371 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Cashier Sim: Supermarket Story</title>
+  <meta name="description" content="Game simulator kasual 3D chibi: jadi kasir supermarket imut, scan barang, hitung kembalian, dan layani pelanggan!" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #fff8e7; font-family: 'Poppins', sans-serif; }
+    #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+    #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+    .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; justify-content: space-between; padding: 24px; pointer-events: none; }
+    .screen.active { display: flex; }
+    .interactive { pointer-events: auto; }
+    
+    /* Typography & Buttons */
+    .game-title { font-family: 'Baloo 2', cursive; font-size: clamp(32px, 6vw, 56px); font-weight: 800; color: #e76f51; text-shadow: 0 4px 12px rgba(231, 111, 81, 0.25), 0 2px 0 #fff; text-align: center; line-height: 1.1; }
+    .sub-title { font-size: 16px; font-weight: 600; color: #b08968; background: #fffdf8; padding: 6px 18px; border-radius: 20px; box-shadow: 0 4px 10px rgba(176, 137, 104, 0.15); margin-top: 6px; border: 1px solid #faedcd; }
+    
+    .btn { font-family: 'Baloo 2', cursive; font-size: 20px; font-weight: 700; border: none; outline: none; cursor: pointer; border-radius: 999px; padding: 12px 32px; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 6px 16px rgba(0,0,0,0.12); display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+    .btn:hover { transform: translateY(-3px) scale(1.04); }
+    .btn:active { transform: translateY(1px) scale(0.98); }
+    .btn-primary { background: linear-gradient(135deg, #f4a261 0%, #e76f51 100%); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+    .btn-secondary { background: #fffdf8; color: #e76f51; border: 2px solid #faedcd; }
+    .btn-secondary:hover { background: #fefae0; }
+    .btn-accent { background: linear-gradient(135deg, #ffd166 0%, #f77f00 100%); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+    
+    .guide-chip { background: rgba(255, 253, 248, 0.94); backdrop-filter: blur(8px); padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #7f5539; box-shadow: 0 4px 12px rgba(127, 85, 57, 0.08); border: 1px solid #faedcd; }
+    
+    /* Main Menu */
+    #screen-menu { justify-content: space-between; }
+    .menu-card { background: rgba(255, 253, 248, 0.95); backdrop-filter: blur(10px); padding: 26px 38px; border-radius: 32px; box-shadow: 0 12px 32px rgba(127, 85, 57, 0.15); text-align: center; border: 4px solid #faedcd; max-width: 480px; margin-top: 20px; }
+    
+    /* Character Select */
+    .char-select-header { background: #fffdf8; padding: 12px 28px; border-radius: 24px; box-shadow: 0 6px 20px rgba(0,0,0,0.06); text-align: center; border: 3px solid #faedcd; }
+    .char-select-cards { display: flex; gap: 24px; margin-bottom: 30px; }
+    .char-pick-btn { background: #fffdf8; border: 3px solid #faedcd; border-radius: 24px; padding: 14px 28px; text-align: center; cursor: pointer; transition: all 0.2s; box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+    .char-pick-btn:hover { border-color: #e76f51; transform: scale(1.06); background: #fefae0; }
+    .char-pick-btn h3 { font-family: 'Baloo 2', cursive; font-size: 22px; color: #e76f51; }
+    .char-pick-btn p { font-size: 13px; color: #7f5539; font-weight: 500; }
+    
+    /* Dress Up Screen */
+    #screen-dressup { flex-direction: row; justify-content: space-between; align-items: stretch; padding: 20px; }
+    .dressup-panel { width: 340px; background: rgba(255, 253, 248, 0.96); backdrop-filter: blur(12px); border-radius: 28px; padding: 20px; box-shadow: 0 12px 36px rgba(0,0,0,0.08); border: 3px solid #faedcd; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; pointer-events: auto; }
+    .dressup-title { font-family: 'Baloo 2', cursive; font-size: 24px; color: #e76f51; font-weight: 800; }
+    .custom-group { background: #fdf8ed; padding: 12px; border-radius: 18px; border: 1px solid #faedcd; }
+    .custom-label { font-size: 13px; font-weight: 700; color: #b08968; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .option-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .opt-chip { padding: 6px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer; border: 2px solid #faedcd; background: #fffdf8; color: #555; transition: all 0.15s; }
+    .opt-chip.active { background: #e76f51; color: #fff; border-color: #e76f51; }
+    .color-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.2); cursor: pointer; transition: transform 0.15s; }
+    .color-dot.active { transform: scale(1.2); border: 2px solid #e76f51; }
+    .name-input { width: 100%; border: 2px solid #faedcd; border-radius: 14px; padding: 10px 14px; font-family: 'Poppins', sans-serif; font-size: 14px; font-weight: 600; outline: none; background: #fffdf8; color: #333; }
+    .name-input:focus { border-color: #e76f51; }
+
+    /* Gameplay HUD */
+    #screen-gameplay { justify-content: space-between; padding: 16px; pointer-events: none; }
+    .hud-top { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+    .hud-box { background: rgba(255, 253, 248, 0.95); backdrop-filter: blur(10px); padding: 10px 18px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.06); border: 2px solid #faedcd; pointer-events: auto; }
+    .hud-label { font-size: 11px; font-weight: 700; color: #b08968; text-transform: uppercase; letter-spacing: 0.3px; }
+    .hud-value { font-family: 'Baloo 2', cursive; font-size: 24px; font-weight: 800; color: #e76f51; line-height: 1.1; }
+    
+    .cashier-register-box { position: absolute; bottom: 20px; right: 20px; width: 340px; background: rgba(255, 253, 248, 0.97); backdrop-filter: blur(12px); border-radius: 24px; padding: 18px; box-shadow: 0 12px 32px rgba(0,0,0,0.1); border: 3px solid #faedcd; pointer-events: auto; }
+    .register-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px dashed #faedcd; padding-bottom: 8px; margin-bottom: 10px; }
+    .register-screen { background: #1b263b; color: #ffd166; padding: 10px 14px; border-radius: 14px; font-family: monospace; font-size: 20px; font-weight: 700; text-align: right; box-shadow: inset 0 2px 6px rgba(0,0,0,0.4); margin-bottom: 12px; }
+    .items-list { max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .item-row { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: #4a5568; background: #fdf8ed; padding: 6px 10px; border-radius: 10px; }
+    .item-row.scanned { color: #2b9348; background: #d8f3dc; }
+    
+    /* Payment Modal */
+    .payment-modal-backdrop { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.45); backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 50; pointer-events: auto; }
+    .payment-modal-backdrop.active { display: flex; }
+    .payment-card { background: #fffdf8; border-radius: 32px; padding: 28px; width: 90%; max-width: 440px; box-shadow: 0 20px 50px rgba(0,0,0,0.22); border: 4px solid #faedcd; text-align: center; }
+    .payment-card h2 { font-family: 'Baloo 2', cursive; font-size: 28px; color: #e76f51; margin-bottom: 8px; }
+    .bill-row { display: flex; justify-content: space-between; font-size: 15px; font-weight: 600; color: #4a5568; margin: 8px 0; padding: 8px 12px; background: #fdf8ed; border-radius: 12px; }
+    .bill-total { font-size: 18px; color: #e76f51; font-weight: 700; }
+    .change-options { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 16px; }
+    .change-btn { background: #fffdf8; border: 2px solid #ffd166; padding: 12px; border-radius: 16px; font-family: 'Baloo 2', cursive; font-size: 20px; font-weight: 700; color: #e76f51; cursor: pointer; transition: all 0.15s; }
+    .change-btn:hover { background: #fff3b0; transform: scale(1.02); }
+    
+    /* Upgrade Modal */
+    .upgrade-card { background: #fffdf8; border-radius: 32px; padding: 26px; width: 92%; max-width: 540px; max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,0.22); border: 4px solid #faedcd; text-align: left; }
+    .upgrade-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+    .upgrade-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fdf8ed; border: 2px solid #faedcd; border-radius: 18px; padding: 12px 16px; transition: all 0.2s; }
+    .upgrade-item:hover { border-color: #ffd166; background: #fffdf8; }
+    .upgrade-item.owned { border-color: #b7e4c7; background: #f0fff4; }
+    .upgrade-info { flex: 1; }
+    .upgrade-title { font-family: 'Baloo 2', cursive; font-size: 17px; font-weight: 700; color: #e76f51; display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+    .upgrade-desc { font-size: 12px; color: #6c757d; font-weight: 500; line-height: 1.3; }
+    .upgrade-price { font-size: 13px; font-weight: 700; color: #2b9348; margin-top: 4px; }
+    .btn-buy-upgrade { padding: 8px 16px; font-size: 13px; border-radius: 14px; font-family: 'Baloo 2', cursive; font-weight: 700; cursor: pointer; border: none; transition: all 0.15s; }
+    .btn-buy-upgrade.ready { background: #e76f51; color: #fff; box-shadow: 0 4px 12px rgba(231,111,81,0.25); }
+    .btn-buy-upgrade.ready:hover { background: #d45d3f; transform: scale(1.03); }
+    .btn-buy-upgrade.locked { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
+    .btn-buy-upgrade.owned { background: #d8f3dc; color: #2b9348; cursor: default; }
+
+    /* Customer Speech Bubble */
+    .cust-bubble { position: absolute; top: 110px; left: 22%; transform: translateX(-50%); background: #fffdf8; border: 2px solid #faedcd; box-shadow: 0 10px 30px rgba(0,0,0,0.14); border-radius: 20px; padding: 12px 18px; max-width: 280px; z-index: 40; pointer-events: auto; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    .cust-bubble-arrow { position: absolute; bottom: -10px; left: 35px; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid #fffdf8; }
+    .cust-bubble-content { font-size: 13px; font-weight: 700; color: #4a5568; line-height: 1.35; }
+
+    @keyframes popIn {
+      0% { transform: translateX(-50%) scale(0.7); opacity: 0; }
+      100% { transform: translateX(-50%) scale(1); opacity: 1; }
+    }
+    @keyframes pulseAnim {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    
+    /* Notification Toast */
+    #toast-msg { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); background: #2a9d8f; color: #fff; padding: 12px 24px; border-radius: 20px; font-weight: 700; font-size: 15px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); display: none; z-index: 100; text-align: center; }
+    
+    /* Results Screen */
+    #screen-result { justify-content: center; background: rgba(254, 250, 240, 0.9); backdrop-filter: blur(8px); }
+    .result-card { background: #fffdf8; border-radius: 36px; padding: 32px; width: 90%; max-width: 480px; text-align: center; box-shadow: 0 20px 50px rgba(127, 85, 57, 0.2); border: 4px solid #faedcd; pointer-events: auto; }
+    .stars-row { font-size: 44px; margin: 10px 0; }
+    .result-stat { display: flex; justify-content: space-between; padding: 10px 16px; background: #fdf8ed; border-radius: 14px; margin: 8px 0; font-size: 15px; font-weight: 600; color: #4a5568; border: 1px solid #faedcd; }
+    
+    /* Camera Reset & Floating Controls */
+    .cam-reset-btn { position: absolute; bottom: 20px; left: 20px; background: rgba(255, 253, 248, 0.95); border: 2px solid #faedcd; border-radius: 16px; padding: 10px 16px; font-size: 13px; font-weight: 700; color: #e76f51; cursor: pointer; pointer-events: auto; box-shadow: 0 6px 16px rgba(0,0,0,0.08); }
+    .cam-reset-btn:hover { background: #fefae0; }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  
+  <div id="ui-layer">
+    <div id="toast-msg">Notifikasi</div>
+
+    <!-- 1. MAIN MENU SCREEN -->
+    <div id="screen-menu" class="screen active">
+      <div class="menu-card interactive">
+        <h1 class="game-title">Cashier Sim</h1>
+        <div class="sub-title">🏪 Supermarket Story 🌸</div>
+        <p style="font-size: 14px; color: #7f5539; margin: 16px 0 24px; font-weight: 500;">
+          Kelola kasir supermarket ceria, dandani karakter chibi imutmu, dan layani pelanggan dengan ramah!
+        </p>
+        <button id="btn-menu-play" class="btn btn-primary" style="font-size: 24px; padding: 14px 44px;">
+          ▶ PLAY SEKARANG
+        </button>
+        <button id="btn-menu-upgrade" class="btn btn-secondary" style="margin-top: 10px; width: 100%; font-size: 14px; padding: 9px; font-weight: 700;">
+          🏬 Upgrade Toko
+        </button>
+      </div>
+      <div class="guide-chip interactive">🖱️ Drag untuk putar kamera • Scroll untuk Zoom</div>
+    </div>
+
+    <!-- 2. CHARACTER SELECT SCREEN -->
+    <div id="screen-select" class="screen">
+      <div class="char-select-header interactive">
+        <h2 style="font-family: 'Baloo 2', cursive; font-size: 28px; color: #ff477e;">PILIH KASIRMU</h2>
+        <p style="font-size: 14px; color: #6c757d;">Pilih karakter cewek atau cowok untuk memulai petualangan kasir</p>
+      </div>
+      <div class="char-select-cards interactive">
+        <div class="char-pick-btn" id="btn-pick-girl">
+          <h3>👩 Kasir Cewek</h3>
+          <p>Imut, modis, ceria</p>
+        </div>
+        <div class="char-pick-btn" id="btn-pick-boy">
+          <h3>👨 Kasir Cowok</h3>
+          <p>Rapi, keren, gesit</p>
+        </div>
+      </div>
+      <div class="guide-chip interactive">🖱️ Putar karakter 360° untuk melihat tampilan full body</div>
+    </div>
+
+    <!-- 3. DRESS UP SCREEN -->
+    <div id="screen-dressup" class="screen">
+      <div class="guide-chip interactive" style="align-self: flex-start;">✨ Sesuaikan Gaya Kasirmu</div>
+      <div class="dressup-panel">
+        <div class="dressup-title">🎨 Dress Up Kasir</div>
+        
+        <div class="custom-group">
+          <div class="custom-label">Nama Kasir</div>
+          <input type="text" id="input-cashier-name" class="name-input" value="Chibi Mei" maxlength="12" />
+        </div>
+
+        <div class="custom-group">
+          <div class="custom-label">Warna Kulit</div>
+          <div class="option-row" id="skin-options"></div>
+        </div>
+
+        <div class="custom-group">
+          <div class="custom-label">Gaya Rambut</div>
+          <div class="option-row" id="hair-style-options"></div>
+        </div>
+
+        <div class="custom-group">
+          <div class="custom-label">Warna Rambut</div>
+          <div class="option-row" id="hair-color-options"></div>
+        </div>
+
+        <div class="custom-group">
+          <div class="custom-label">Outfit Kasir</div>
+          <div class="option-row" id="outfit-options"></div>
+        </div>
+
+        <div class="custom-group">
+          <div class="custom-label">Aksesori</div>
+          <div class="option-row" id="acc-options"></div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <button id="btn-dressup-back" class="btn btn-secondary" style="flex: 1; padding: 10px;">Kembali</button>
+          <button id="btn-dressup-start" class="btn btn-primary" style="flex: 2; padding: 10px;">MULAI KASIR 🚀</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. GAMEPLAY SCREEN -->
+    <div id="screen-gameplay" class="screen">
+      <div class="hud-top">
+        <div class="hud-box">
+          <div class="hud-label">⏰ Jam Toko (Shift: 08:00 - 19:00)</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="hud-value" id="hud-clock" style="color: #e76f51;">08:00</div>
+            <span id="hud-status" style="font-size: 11px; padding: 3px 8px; border-radius: 8px; background: #d8f3dc; color: #2b9348; font-weight: 700;">BUKA</span>
+          </div>
+        </div>
+        <div class="hud-box" style="min-width: 185px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="hud-label">Kasir & Reputasi</div>
+            <span id="hud-streak-badge" style="display: none; font-size: 11px; font-weight: 800; background: #e76f51; color: #fff; padding: 2px 8px; border-radius: 8px; animation: pulseAnim 0.8s infinite;">🔥 x2</span>
+          </div>
+          <div style="display: flex; align-items: baseline; gap: 8px; margin: 2px 0;">
+            <div class="hud-value" id="hud-cashier-name" style="font-size: 20px;">Chibi Mei</div>
+            <span id="hud-rep-num" style="font-size: 12px; font-weight: 700; color: #b08968;">3.0 / 5.0</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span id="hud-rep-stars" style="font-size: 13px; color: #f4a261; letter-spacing: 0.5px;">⭐⭐⭐</span>
+            <div style="flex: 1; height: 6px; background: #faedcd; border-radius: 4px; overflow: hidden;">
+              <div id="hud-rep-bar" style="width: 60%; height: 100%; background: linear-gradient(90deg, #f4a261, #2b9348); transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="hud-box" style="text-align: center;">
+          <div class="hud-label">Pelanggan Dilayani</div>
+          <div class="hud-value" id="hud-customer-count">0 orang</div>
+        </div>
+        <div class="hud-box" style="text-align: right;">
+          <div class="hud-label">Pendapatan Hari Ini</div>
+          <div class="hud-value" id="hud-money" style="color: #2b9348;">Rp0</div>
+        </div>
+      </div>
+
+      <button id="btn-reset-cam" class="cam-reset-btn">🔄 Reset Sudut Kamera</button>
+
+      <!-- Customer Speech Bubble (Random Event: Request) -->
+      <div id="customer-bubble" class="cust-bubble" style="display: none;">
+        <div id="cust-bubble-text" class="cust-bubble-content">"Bisa minta struk belanja ya kak? 🧾"</div>
+        <button id="btn-cust-bubble-ok" class="btn btn-primary" style="font-size: 12px; padding: 5px 12px; margin-top: 6px; width: 100%;">Tentu Saja, Siap! 👍</button>
+        <div class="cust-bubble-arrow"></div>
+      </div>
+
+      <!-- Cash Register Register HUD -->
+      <div class="cashier-register-box">
+        <div class="register-header">
+          <span style="font-size: 14px; font-weight: 700; color: #e76f51;">MESIN KASIR DIGITAL</span>
+          <span id="scan-hint" style="font-size: 12px; font-weight: 600; color: #b08968;">👉 Klik barang di meja!</span>
+        </div>
+        <div class="register-screen" id="reg-display">TOTAL: Rp0</div>
+
+        <!-- Random Event Interactive Banner -->
+        <div id="event-banner" style="display: none; background: #fff8e7; border: 2px solid #ffd166; border-radius: 14px; padding: 8px 12px; margin-bottom: 10px;">
+          <div id="event-banner-text" style="font-size: 12px; font-weight: 700; color: #7f5539; margin-bottom: 5px;">🏷️ Promo Dadakan Terdeteksi!</div>
+          <button id="btn-event-action" class="btn btn-primary" style="font-size: 12px; padding: 4px 10px; width: 100%;">Terapkan Diskon</button>
+        </div>
+
+        <div class="items-list" id="items-receipt"></div>
+        <button id="btn-pay" class="btn btn-accent" style="width: 100%; display: none;">
+          💵 TERIMA PEMBAYARAN
+        </button>
+      </div>
+
+      <!-- Payment & Change Modal -->
+      <div class="payment-modal-backdrop" id="payment-modal">
+        <div class="payment-card">
+          <h2>Hitung Kembalian 🪙</h2>
+          <div class="bill-row">
+            <span>Total Belanja:</span>
+            <span class="bill-total" id="pay-total-val">Rp0</span>
+          </div>
+          <div class="bill-row">
+            <span>Uang Diterima Pelanggan:</span>
+            <span style="font-size: 18px; color: #2b9348; font-weight: 700;" id="pay-cash-val">Rp0</span>
+          </div>
+          <p style="font-size: 13px; color: #6c757d; margin: 12px 0 8px; font-weight: 600;">
+            Berapa jumlah kembalian yang harus diberikan?
+          </p>
+          <div class="change-options" id="change-options-box"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. RESULTS SCREEN -->
+    <div id="screen-result" class="screen">
+      <div class="result-card">
+        <h1 style="font-family: 'Baloo 2', cursive; font-size: 34px; color: #e76f51;">Toko Tutup - Shift Selesai! 🌙</h1>
+        <div class="stars-row" id="result-stars">⭐⭐⭐</div>
+        <p id="result-msg" style="font-size: 14px; color: #7f5539; font-weight: 600; margin-bottom: 16px;">
+          Shift hari ini (08:00 - 19:00) telah berakhir. Terima kasih atas kerja kerasmu!
+        </p>
+        <div class="result-stat">
+          <span>Total Pendapatan Shift Ini:</span>
+          <span id="res-total-money" style="color: #2b9348; font-weight: 700;">Rp0</span>
+        </div>
+        <div class="result-stat" style="background: #edf6f9; border-color: #bee1e6;">
+          <span style="color: #0077b6; font-weight: 700;">💰 Total Tabungan Toko (Akumulasi):</span>
+          <span id="res-savings-money" style="color: #0077b6; font-weight: 800;">Rp0</span>
+        </div>
+        <div class="result-stat">
+          <span>Jumlah Pelanggan Dilayani:</span>
+          <span id="res-total-customers" style="color: #4a5568; font-weight: 700;">0 orang</span>
+        </div>
+        <div class="result-stat">
+          <span>Transaksi Benar:</span>
+          <span id="res-correct-trans" style="color: #2b9348; font-weight: 700;">0</span>
+        </div>
+        <div class="result-stat">
+          <span>Transaksi Salah:</span>
+          <span id="res-wrong-trans" style="color: #e76f51; font-weight: 700;">0</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 22px;">
+          <button id="btn-res-replay" class="btn btn-primary">Mulai Shift Berikutnya ☀️</button>
+          <button id="btn-res-upgrade" class="btn btn-accent" style="background: linear-gradient(135deg, #e76f51, #f4a261); font-size: 16px; padding: 12px;">🏬 Upgrade Toko Supermarket</button>
+          <button id="btn-res-dress" class="btn btn-secondary">Ganti Baju & Gaya</button>
+          <button id="btn-res-char" class="btn btn-secondary">Pilih Karakter Lain</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. UPGRADE SHOP MODAL -->
+    <div class="payment-modal-backdrop" id="upgrade-modal">
+      <div class="upgrade-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h2 style="font-family: 'Baloo 2', cursive; font-size: 26px; color: #e76f51; margin: 0;">🏬 Toko Upgrade Supermarket</h2>
+          <button id="btn-close-upgrade" class="btn btn-secondary" style="padding: 6px 14px; font-size: 13px; font-weight: 700;">✕ Tutup</button>
+        </div>
+        <div style="background: #fdf8ed; border: 2px solid #faedcd; border-radius: 16px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <div>
+            <div style="font-size: 11px; font-weight: 700; color: #b08968; text-transform: uppercase;">Saldo Tabungan Akumulasi</div>
+            <div id="shop-savings-val" style="font-family: 'Baloo 2', cursive; font-size: 24px; font-weight: 800; color: #2b9348; line-height: 1.1;">Rp0</div>
+          </div>
+          <span style="font-size: 12px; color: #7f5539; font-weight: 600; text-align: right;">Gunakan tabunganmu<br>untuk upgrade tokomu!</span>
+        </div>
+        <div class="upgrade-list" id="upgrade-list-box"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       AUDIO SYNTHESIZER (Cute Web Audio sound effects without external files)
+       ========================================================================= */
+    class CuteAudio {
+      constructor() {
+        this.ctx = null;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playTone(freq, type = 'sine', duration = 0.15, gainVal = 0.1) {
+        try {
+          this.init();
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch(e) {}
+      }
+      scan() {
+        this.playTone(1760, 'sine', 0.12, 0.15); // bright cute beep
+      }
+      turboScan() {
+        this.playTone(1760, 'sine', 0.08, 0.16);
+        setTimeout(() => this.playTone(2349.32, 'triangle', 0.1, 0.18), 50);
+      }
+      click() {
+        this.playTone(600, 'triangle', 0.08, 0.1);
+      }
+      chime() {
+        this.playTone(880, 'sine', 0.12, 0.15);
+        setTimeout(() => this.playTone(1174.66, 'sine', 0.15, 0.15), 80);
+        setTimeout(() => this.playTone(1760, 'triangle', 0.25, 0.18), 160);
+        setTimeout(() => this.playTone(2349.32, 'triangle', 0.35, 0.15), 240);
+      }
+      combo() {
+        this.playTone(523.25, 'triangle', 0.12, 0.15);
+        setTimeout(() => this.playTone(659.25, 'triangle', 0.12, 0.15), 70);
+        setTimeout(() => this.playTone(783.99, 'triangle', 0.12, 0.15), 140);
+        setTimeout(() => this.playTone(1046.5, 'sine', 0.25, 0.2), 210);
+      }
+      success() {
+        // cheerful ding-dong
+        this.playTone(523.25, 'triangle', 0.15, 0.15);
+        setTimeout(() => this.playTone(659.25, 'triangle', 0.15, 0.15), 100);
+        setTimeout(() => this.playTone(783.99, 'triangle', 0.3, 0.18), 200);
+      }
+      error() {
+        this.playTone(280, 'sawtooth', 0.25, 0.12);
+      }
+    }
+    const audio = new CuteAudio();
+
+    /* =========================================================================
+       3D PROCEDURAL CHIBI CHARACTER BUILDER (Full Body Hierarchy)
+       ========================================================================= */
+    const SKIN_COLORS = { fair: 0xffdfd3, peach: 0xfcd5ce, honey: 0xe0a96d };
+    const HAIR_COLORS = {
+      black: 0x2b2b2b,
+      brown: 0x6b4423,
+      blonde: 0xf5cb5c,
+      pink: 0xff8fab
+    };
+
+    function createChibiCharacter(options = {}) {
+      const isGirl = options.gender === 'girl';
+      const skinColor = options.skinColor || SKIN_COLORS.fair;
+      const hairColor = options.hairColor || (isGirl ? HAIR_COLORS.pink : HAIR_COLORS.brown);
+      const hairStyle = options.hairStyle || 0;
+      const outfitColor = options.outfitColor || 0;
+      const accessory = options.accessory || 0;
+
+      // Single root group for the entire character
+      const charGroup = new THREE.Group();
+
+      // Materials
+      const skinMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.5 });
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
+      const eyeSparkleMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const blushMat = new THREE.MeshBasicMaterial({ color: 0xff758f, transparent: true, opacity: 0.45 });
+      const hairMat = new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.45 });
+      const mouthMat = new THREE.MeshBasicMaterial({ color: 0xc9184a });
+      const eyebrowMat = new THREE.MeshBasicMaterial({ color: 0x4a4e69 });
+
+      // Uniform color palettes
+      let mainClothColor = 0xff758f;
+      let subClothColor = 0xffffff;
+      let pantsSkirtColor = isGirl ? 0xff477e : 0x2b2d42;
+
+      if (isGirl) {
+        if (outfitColor === 1) { mainClothColor = 0x48cae4; pantsSkirtColor = 0x0077b6; }
+        else if (outfitColor === 2) { mainClothColor = 0xffd166; pantsSkirtColor = 0xf77f00; }
+      } else {
+        if (outfitColor === 0) { mainClothColor = 0x0077b6; pantsSkirtColor = 0x1d3557; }
+        else if (outfitColor === 1) { mainClothColor = 0x2a9d8f; pantsSkirtColor = 0x264653; }
+        else if (outfitColor === 2) { mainClothColor = 0x6c757d; pantsSkirtColor = 0x343a40; }
+      }
+
+      const clothMat = new THREE.MeshStandardMaterial({ color: mainClothColor, roughness: 0.5 });
+      const whiteClothMat = new THREE.MeshStandardMaterial({ color: subClothColor, roughness: 0.5 });
+      const lowerClothMat = new THREE.MeshStandardMaterial({ color: pantsSkirtColor, roughness: 0.5 });
+      const shoeMat = new THREE.MeshStandardMaterial({ color: isGirl ? 0xff477e : 0x212529, roughness: 0.4 });
+
+      /* 1. FEET & SHOES (Resting exactly on y = 0) */
+      const footGeo = new THREE.SphereGeometry(0.12, 16, 16);
+      footGeo.scale(1, 0.6, 1.4);
+      
+      const leftFoot = new THREE.Mesh(footGeo, shoeMat);
+      leftFoot.position.set(-0.16, 0.07, 0.03);
+      charGroup.add(leftFoot);
+
+      const rightFoot = new THREE.Mesh(footGeo, shoeMat);
+      rightFoot.position.set(0.16, 0.07, 0.03);
+      charGroup.add(rightFoot);
+
+      /* 2. LEGS */
+      const legGeo = new THREE.CylinderGeometry(0.08, 0.09, 0.45, 16);
+      const leftLeg = new THREE.Mesh(legGeo, isGirl ? skinMat : lowerClothMat);
+      leftLeg.position.set(-0.16, 0.32, 0);
+      charGroup.add(leftLeg);
+
+      const rightLeg = new THREE.Mesh(legGeo, isGirl ? skinMat : lowerClothMat);
+      rightLeg.position.set(0.16, 0.32, 0);
+      charGroup.add(rightLeg);
+      charGroup.userData.legs = [leftLeg, rightLeg];
+
+      /* 3. LOWER BODY (Pants / Skirt) */
+      if (isGirl) {
+        // Cute flared cashier skirt
+        const skirtGeo = new THREE.ConeGeometry(0.38, 0.35, 24, 1, true);
+        const skirt = new THREE.Mesh(skirtGeo, lowerClothMat);
+        skirt.rotation.x = Math.PI;
+        skirt.position.set(0, 0.65, 0);
+        charGroup.add(skirt);
+      } else {
+        // Boy cashier trousers upper section
+        const pelvisGeo = new THREE.CylinderGeometry(0.24, 0.22, 0.22, 18);
+        const pelvis = new THREE.Mesh(pelvisGeo, lowerClothMat);
+        pelvis.position.set(0, 0.58, 0);
+        charGroup.add(pelvis);
+      }
+
+      /* 4. TORSO (Connected directly without gap) */
+      const torsoGeo = new THREE.CylinderGeometry(0.24, 0.26, 0.5, 20);
+      const torso = new THREE.Mesh(torsoGeo, clothMat);
+      torso.position.set(0, 0.88, 0);
+      charGroup.add(torso);
+
+      // Cashier Apron / Vest Details
+      const apronBibGeo = new THREE.PlaneGeometry(0.26, 0.4);
+      const apronBib = new THREE.Mesh(apronBibGeo, whiteClothMat);
+      apronBib.position.set(0, 0.9, 0.25);
+      charGroup.add(apronBib);
+
+      // Name Badge on chest
+      const badgeGeo = new THREE.PlaneGeometry(0.1, 0.06);
+      const badgeMat = new THREE.MeshBasicMaterial({ color: 0xffd166 });
+      const badge = new THREE.Mesh(badgeGeo, badgeMat);
+      badge.position.set(0.1, 0.98, 0.26);
+      charGroup.add(badge);
+
+      /* 5. ARMS & HANDS */
+      const armGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.38, 16);
+      const handGeo = new THREE.SphereGeometry(0.07, 16, 16);
+
+      const leftArm = new THREE.Mesh(armGeo, clothMat);
+      leftArm.position.set(-0.32, 0.86, 0);
+      leftArm.rotation.z = 0.2;
+      const leftHand = new THREE.Mesh(handGeo, skinMat);
+      leftHand.position.set(0, -0.22, 0);
+      leftArm.add(leftHand);
+      charGroup.add(leftArm);
+
+      const rightArm = new THREE.Mesh(armGeo, clothMat);
+      rightArm.position.set(0.32, 0.86, 0);
+      rightArm.rotation.z = -0.2;
+      const rightHand = new THREE.Mesh(handGeo, skinMat);
+      rightHand.position.set(0, -0.22, 0);
+      rightArm.add(rightHand);
+      charGroup.add(rightArm);
+      charGroup.userData.arms = [leftArm, rightArm];
+
+      /* 6. HEAD (~40% of total height, 32 segments smooth) */
+      const headGroup = new THREE.Group();
+      headGroup.position.set(0, 1.5, 0);
+
+      const headGeo = new THREE.SphereGeometry(0.48, 32, 32);
+      const head = new THREE.Mesh(headGeo, skinMat);
+      headGroup.add(head);
+
+      // Cute Eyes (Glossy black sphere + white highlight)
+      const eyeGeo = new THREE.SphereGeometry(0.065, 16, 16);
+      const sparkleGeo = new THREE.SphereGeometry(0.025, 12, 12);
+
+      const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+      leftEye.position.set(-0.16, 0.02, 0.44);
+      const leftSparkle = new THREE.Mesh(sparkleGeo, eyeSparkleMat);
+      leftSparkle.position.set(0.02, 0.025, 0.05);
+      leftEye.add(leftSparkle);
+      headGroup.add(leftEye);
+
+      const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
+      rightEye.position.set(0.16, 0.02, 0.44);
+      const rightSparkle = new THREE.Mesh(sparkleGeo, eyeSparkleMat);
+      rightSparkle.position.set(0.02, 0.025, 0.05);
+      rightEye.add(rightSparkle);
+      headGroup.add(rightEye);
+
+      // Cheeks (Blushing pink)
+      const blushGeo = new THREE.CircleGeometry(0.08, 16);
+      const leftBlush = new THREE.Mesh(blushGeo, blushMat);
+      leftBlush.position.set(-0.24, -0.1, 0.42);
+      headGroup.add(leftBlush);
+
+      const rightBlush = new THREE.Mesh(blushGeo, blushMat);
+      rightBlush.position.set(0.24, -0.1, 0.42);
+      headGroup.add(rightBlush);
+
+      // Cute Smiling Mouth
+      const mouthGeo = new THREE.TorusGeometry(0.04, 0.012, 8, 16, Math.PI);
+      const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+      mouth.position.set(0, -0.14, 0.46);
+      mouth.rotation.x = Math.PI;
+      headGroup.add(mouth);
+
+      // Eyebrows
+      const browGeo = new THREE.BoxGeometry(0.09, 0.02, 0.01);
+      const leftBrow = new THREE.Mesh(browGeo, eyebrowMat);
+      leftBrow.position.set(-0.16, 0.14, 0.44);
+      leftBrow.rotation.z = -0.1;
+      headGroup.add(leftBrow);
+
+      const rightBrow = new THREE.Mesh(browGeo, eyebrowMat);
+      rightBrow.position.set(0.16, 0.14, 0.44);
+      rightBrow.rotation.z = 0.1;
+      headGroup.add(rightBrow);
+
+      /* 7. CHIBI HAIR (Layered overlapping rounded spheres/capsules) */
+      const hairGroup = new THREE.Group();
+
+      // Hair Dome Base (Soft round volume)
+      const domeGeo = new THREE.SphereGeometry(0.51, 32, 24);
+      domeGeo.scale(1.02, 1.05, 1.05);
+      const dome = new THREE.Mesh(domeGeo, hairMat);
+      dome.position.set(0, 0.04, -0.05);
+      hairGroup.add(dome);
+
+      // Bangs (Poni depan melengkung - clustered organic lobes)
+      const bangGeo = new THREE.SphereGeometry(0.14, 16, 16);
+      bangGeo.scale(1.4, 0.9, 0.8);
+      
+      const bangC = new THREE.Mesh(bangGeo, hairMat);
+      bangC.position.set(0, 0.28, 0.42);
+      hairGroup.add(bangC);
+
+      const bangL = new THREE.Mesh(bangGeo, hairMat);
+      bangL.position.set(-0.18, 0.25, 0.4);
+      bangL.rotation.z = 0.2;
+      hairGroup.add(bangL);
+
+      const bangR = new THREE.Mesh(bangGeo, hairMat);
+      bangR.position.set(0.18, 0.25, 0.4);
+      bangR.rotation.z = -0.2;
+      hairGroup.add(bangR);
+
+      // Hair Styles Variation
+      if (isGirl) {
+        if (hairStyle === 0) {
+          // Style 1: Panjang Berlapis (Side flows down to shoulders)
+          const strandGeo = new THREE.SphereGeometry(0.15, 16, 16);
+          strandGeo.scale(0.8, 2.2, 0.9);
+          const strandL = new THREE.Mesh(strandGeo, hairMat);
+          strandL.position.set(-0.38, -0.2, 0.1);
+          hairGroup.add(strandL);
+
+          const strandR = new THREE.Mesh(strandGeo, hairMat);
+          strandR.position.set(0.38, -0.2, 0.1);
+          hairGroup.add(strandR);
+        } else if (hairStyle === 1) {
+          // Style 2: Cute High Ponytail with hair tie
+          const tieGeo = new THREE.TorusGeometry(0.08, 0.03, 12, 16);
+          const tieMat = new THREE.MeshBasicMaterial({ color: 0xff477e });
+          const tie = new THREE.Mesh(tieGeo, tieMat);
+          tie.position.set(0, 0.35, -0.45);
+          tie.rotation.x = Math.PI / 3;
+          hairGroup.add(tie);
+
+          const ponyGeo = new THREE.SphereGeometry(0.22, 18, 18);
+          ponyGeo.scale(1, 1.6, 1.2);
+          const pony = new THREE.Mesh(ponyGeo, hairMat);
+          pony.position.set(0, 0.3, -0.62);
+          pony.rotation.x = 0.4;
+          hairGroup.add(pony);
+        } else {
+          // Style 3: Bob Pendek Imut
+          const bobGeo = new THREE.SphereGeometry(0.18, 16, 16);
+          bobGeo.scale(1.1, 1.2, 1.1);
+          const bobL = new THREE.Mesh(bobGeo, hairMat);
+          bobL.position.set(-0.36, -0.05, 0);
+          hairGroup.add(bobL);
+
+          const bobR = new THREE.Mesh(bobGeo, hairMat);
+          bobR.position.set(0.36, -0.05, 0);
+          hairGroup.add(bobR);
+        }
+      } else {
+        if (hairStyle === 0) {
+          // Style 1: Pendek Rapi Bergelombang Halus
+          const topClumpGeo = new THREE.SphereGeometry(0.16, 16, 16);
+          topClumpGeo.scale(1.6, 0.9, 1.2);
+          const topClump = new THREE.Mesh(topClumpGeo, hairMat);
+          topClump.position.set(0, 0.42, 0.1);
+          hairGroup.add(topClump);
+        } else if (hairStyle === 1) {
+          // Style 2: Soft Layered Wave (Spiky lembut tidak runcing)
+          const waveGeo = new THREE.SphereGeometry(0.15, 16, 16);
+          waveGeo.scale(1, 1.5, 1);
+          const wave1 = new THREE.Mesh(waveGeo, hairMat);
+          wave1.position.set(-0.1, 0.42, 0.2);
+          wave1.rotation.z = -0.3;
+          hairGroup.add(wave1);
+
+          const wave2 = new THREE.Mesh(waveGeo, hairMat);
+          wave2.position.set(0.12, 0.44, 0.18);
+          wave2.rotation.z = 0.25;
+          hairGroup.add(wave2);
+        } else {
+          // Style 3: Klimis Side Parted
+          const partGeo = new THREE.SphereGeometry(0.2, 16, 16);
+          partGeo.scale(1.8, 0.7, 1.3);
+          const part = new THREE.Mesh(partGeo, hairMat);
+          part.position.set(0.08, 0.38, 0.15);
+          part.rotation.z = -0.15;
+          hairGroup.add(part);
+        }
+      }
+      headGroup.add(hairGroup);
+
+      /* 8. ACCESSORIES */
+      if (accessory === 1) {
+        // Supermarket Cashier Visor / Cap
+        const capGroup = new THREE.Group();
+        capGroup.position.set(0, 0.4, 0.05);
+
+        const capCrownGeo = new THREE.CylinderGeometry(0.44, 0.48, 0.16, 24);
+        const capMat = new THREE.MeshStandardMaterial({ color: 0x2b9348 });
+        const crown = new THREE.Mesh(capCrownGeo, capMat);
+        capGroup.add(crown);
+
+        const visorGeo = new THREE.CylinderGeometry(0.52, 0.52, 0.04, 24, 1, false, 0, Math.PI);
+        const visor = new THREE.Mesh(visorGeo, capMat);
+        visor.position.set(0, -0.06, 0.22);
+        visor.rotation.x = 0.2;
+        capGroup.add(visor);
+        headGroup.add(capGroup);
+      } else if (accessory === 2) {
+        if (isGirl) {
+          // Cute Headband with ribbon
+          const bandGeo = new THREE.TorusGeometry(0.48, 0.035, 12, 24, Math.PI);
+          const bandMat = new THREE.MeshBasicMaterial({ color: 0xff477e });
+          const band = new THREE.Mesh(bandGeo, bandMat);
+          band.position.set(0, 0.15, 0.08);
+          band.rotation.x = -Math.PI / 2.3;
+          headGroup.add(band);
+
+          const bowGeo = new THREE.SphereGeometry(0.08, 12, 12);
+          bowGeo.scale(1.5, 0.8, 0.8);
+          const bow = new THREE.Mesh(bowGeo, bandMat);
+          bow.position.set(0.3, 0.46, 0.1);
+          headGroup.add(bow);
+        } else {
+          // Cool Round Glasses
+          const glassesGroup = new THREE.Group();
+          glassesGroup.position.set(0, 0.02, 0.48);
+
+          const rimGeo = new THREE.TorusGeometry(0.09, 0.015, 8, 20);
+          const rimMat = new THREE.MeshBasicMaterial({ color: 0x333333 });
+
+          const leftRim = new THREE.Mesh(rimGeo, rimMat);
+          leftRim.position.set(-0.16, 0, 0);
+          glassesGroup.add(leftRim);
+
+          const rightRim = new THREE.Mesh(rimGeo, rimMat);
+          rightRim.position.set(0.16, 0, 0);
+          glassesGroup.add(rightRim);
+
+          const bridgeGeo = new THREE.BoxGeometry(0.14, 0.015, 0.01);
+          const bridge = new THREE.Mesh(bridgeGeo, rimMat);
+          glassesGroup.add(bridge);
+
+          headGroup.add(glassesGroup);
+        }
+      }
+
+      charGroup.add(headGroup);
+      charGroup.userData.headGroup = headGroup;
+
+      return charGroup;
+    }
+
+    /* =========================================================================
+       THREE.JS SCENE MANAGEMENT & GAME LOGIC
+       ========================================================================= */
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xfff8e7);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.minDistance = 2.5;
+    controls.maxDistance = 14;
+    controls.minPolarAngle = 0.2;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05; // Never clip floor
+
+    // Lights (Warm cozy supermarket ambiance)
+    const ambientLight = new THREE.AmbientLight(0xfffaec, 0.95);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff5e4, 0.9);
+    sunLight.position.set(6, 12, 8);
+    sunLight.castShadow = true;
+    scene.add(sunLight);
+
+    const warmCounterLight = new THREE.PointLight(0xffe8cc, 1.4, 9);
+    warmCounterLight.position.set(0, 3, 1);
+    scene.add(warmCounterLight);
+
+    // Scene Sub-Roots
+    const menuSceneGroup = new THREE.Group();
+    const selectSceneGroup = new THREE.Group();
+    const dressupSceneGroup = new THREE.Group();
+    const gameplaySceneGroup = new THREE.Group();
+
+    scene.add(menuSceneGroup);
+    scene.add(selectSceneGroup);
+    scene.add(dressupSceneGroup);
+    scene.add(gameplaySceneGroup);
+
+    /* =========================================================================
+       1. BUILD MAIN MENU 3D SCENE (Storefront Facade, Clouds, Sliding Doors)
+       ========================================================================= */
+    function buildMenuScene() {
+      // Store facade building
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0xffeedd, roughness: 0.6 });
+      const storeWall = new THREE.Mesh(new THREE.BoxGeometry(8, 5, 1), wallMat);
+      storeWall.position.set(0, 2.5, -2);
+      menuSceneGroup.add(storeWall);
+
+      // Red-Orange Striped Awning/Canopy
+      const canopyGeo = new THREE.BoxGeometry(7, 0.3, 1.8);
+      const canopyMat = new THREE.MeshStandardMaterial({ color: 0xff477e, roughness: 0.4 });
+      const canopy = new THREE.Mesh(canopyGeo, canopyMat);
+      canopy.position.set(0, 4.2, -1.2);
+      canopy.rotation.x = 0.15;
+      menuSceneGroup.add(canopy);
+
+      // Store Signboard
+      const signBoard = new THREE.Mesh(
+        new THREE.BoxGeometry(5.5, 1, 0.2),
+        new THREE.MeshStandardMaterial({ color: 0xffd166, roughness: 0.3 })
+      );
+      signBoard.position.set(0, 4.8, -1.1);
+      menuSceneGroup.add(signBoard);
+
+      // Neon Sign border (Upgradable)
+      const menuNeon = new THREE.Mesh(
+        new THREE.BoxGeometry(5.75, 1.25, 0.24),
+        new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.8, roughness: 0.2 })
+      );
+      menuNeon.position.set(0, 4.8, -1.13);
+      menuNeon.visible = false;
+      menuSceneGroup.add(menuNeon);
+      menuSceneGroup.userData.neonSign = menuNeon;
+
+      // Glass Sliding Doors
+      const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0xa2d2ff, transparent: true, opacity: 0.65 });
+      
+      const leftDoor = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.6, 0.1), glassMat);
+      leftDoor.position.set(-0.6, 1.3, -1.45);
+      menuSceneGroup.add(leftDoor);
+
+      const rightDoor = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.6, 0.1), glassMat);
+      rightDoor.position.set(0.6, 1.3, -1.45);
+      menuSceneGroup.add(rightDoor);
+      menuSceneGroup.userData.doors = { left: leftDoor, right: rightDoor };
+
+      // Ground / Sidewalk
+      const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xfdf0d5, roughness: 0.8 })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      menuSceneGroup.add(ground);
+
+      // Decorative Cartoon Potted Trees
+      function makeCuteTree(x, z) {
+        const tree = new THREE.Group();
+        const pot = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.3, 0.22, 0.5, 16),
+          new THREE.MeshStandardMaterial({ color: 0xe07a5f })
+        );
+        pot.position.y = 0.25;
+        tree.add(pot);
+
+        const bush = new THREE.Mesh(
+          new THREE.SphereGeometry(0.55, 16, 16),
+          new THREE.MeshStandardMaterial({ color: 0x52b788, roughness: 0.5 })
+        );
+        bush.position.y = 0.85;
+        tree.add(bush);
+        tree.position.set(x, 0, z);
+        return tree;
+      }
+      menuSceneGroup.add(makeCuteTree(-3.2, -0.8));
+      menuSceneGroup.add(makeCuteTree(3.2, -0.8));
+
+      // Cute Mascot Cashier waving in front
+      const mascot = createChibiCharacter({ gender: 'girl', hairStyle: 1, outfitColor: 0 });
+      mascot.position.set(1.4, 0, 0.3);
+      mascot.rotation.y = -0.3;
+      menuSceneGroup.add(mascot);
+      menuSceneGroup.userData.mascot = mascot;
+
+      // Soft Floating Clouds
+      const cloudGroup = new THREE.Group();
+      const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
+      for (let i = 0; i < 4; i++) {
+        const cloud = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 12), cloudMat);
+        cloud.scale.set(1.8, 0.7, 0.9);
+        cloud.position.set(-6 + i * 4, 6.5 + (i % 2) * 0.8, -3);
+        cloudGroup.add(cloud);
+      }
+      menuSceneGroup.add(cloudGroup);
+      menuSceneGroup.userData.clouds = cloudGroup;
+    }
+
+    /* =========================================================================
+       2. BUILD CHARACTER SELECTION 3D SCENE (Dual Chibi Pedestals)
+       ========================================================================= */
+    let selectGirlChar, selectBoyChar;
+    function buildSelectScene() {
+      // Twin Pedestals
+      const pedMat = new THREE.MeshStandardMaterial({ color: 0xfffdf8, roughness: 0.4 });
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0xfaedcd });
+
+      const pedL = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.0, 0.2, 32), pedMat);
+      pedL.position.set(-1.4, 0.1, 0);
+      selectSceneGroup.add(pedL);
+
+      const pedR = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.0, 0.2, 32), pedMat);
+      pedR.position.set(1.4, 0.1, 0);
+      selectSceneGroup.add(pedR);
+
+      // Girl Cashier Model
+      selectGirlChar = createChibiCharacter({ gender: 'girl', hairStyle: 0, hairColor: HAIR_COLORS.pink, outfitColor: 0 });
+      selectGirlChar.position.set(-1.4, 0.2, 0);
+      selectSceneGroup.add(selectGirlChar);
+
+      // Boy Cashier Model
+      selectBoyChar = createChibiCharacter({ gender: 'boy', hairStyle: 0, hairColor: HAIR_COLORS.brown, outfitColor: 0 });
+      selectBoyChar.position.set(1.4, 0.2, 0);
+      selectSceneGroup.add(selectBoyChar);
+
+      // Stage floor
+      const floor = new THREE.Mesh(
+        new THREE.CircleGeometry(4, 32),
+        new THREE.MeshStandardMaterial({ color: 0xf5e6d3, roughness: 0.8 })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      selectSceneGroup.add(floor);
+    }
+
+    /* =========================================================================
+       3. BUILD DRESS UP 3D PREVIEW SCENE
+       ========================================================================= */
+    let dressupPreviewChar = null;
+    function buildDressupScene() {
+      const ped = new THREE.Mesh(
+        new THREE.CylinderGeometry(1.1, 1.2, 0.25, 32),
+        new THREE.MeshStandardMaterial({ color: 0xfffdf8, roughness: 0.3 })
+      );
+      ped.position.set(-0.8, 0.12, 0);
+      dressupSceneGroup.add(ped);
+
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.95, 1.05, 32),
+        new THREE.MeshBasicMaterial({ color: 0xe76f51, side: THREE.DoubleSide })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.set(-0.8, 0.26, 0);
+      dressupSceneGroup.add(ring);
+    }
+
+    function updateDressupModel() {
+      if (dressupPreviewChar) {
+        dressupSceneGroup.remove(dressupPreviewChar);
+      }
+      dressupPreviewChar = createChibiCharacter({
+        gender: gameState.playerGender,
+        skinColor: SKIN_COLORS[gameState.playerSkin],
+        hairStyle: gameState.playerHairStyle,
+        hairColor: HAIR_COLORS[gameState.playerHairColor],
+        outfitColor: gameState.playerOutfit,
+        accessory: gameState.playerAccessory
+      });
+      dressupPreviewChar.position.set(-0.8, 0.25, 0);
+      dressupSceneGroup.add(dressupPreviewChar);
+    }
+
+    /* =========================================================================
+       4. BUILD SUPERMARKET INTERIOR & GAMEPLAY SCENE
+       ========================================================================= */
+    let playerCashierModel = null;
+    let customerModel = null;
+    let conveyorItems = [];
+    const groceryCatalog = [
+      { name: 'Susu Segar 🥛', price: 12000, type: 'bottle', color: 0x48cae4 },
+      { name: 'Roti Gandum 🍞', price: 8000, type: 'bread', color: 0xd4a373 },
+      { name: 'Sabun Mandi 🧼', price: 6000, type: 'box', color: 0xff8fab },
+      { name: 'Jus Apel 🧃', price: 9000, type: 'juice', color: 0xe76f51 },
+      { name: 'Biskuit Coklat 🍪', price: 11000, type: 'box', color: 0x6b4423 },
+      { name: 'Apel Merah 🍎', price: 5000, type: 'fruit', color: 0xd90429 },
+      { name: 'Cereal Jagung 🥣', price: 15000, type: 'cereal', color: 0xffb703 }
+    ];
+
+    function buildGameplaySupermarket() {
+      // Warm Cozy Cream Tile Floor
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0xf5e6d3, roughness: 0.35 });
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      gameplaySceneGroup.add(floor);
+      gameplaySceneGroup.userData.floor = floor;
+
+      // Back & Side Store Walls (Cozy soft warm cream)
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0xfff8e7, roughness: 0.75 });
+      const backWall = new THREE.Mesh(new THREE.BoxGeometry(24, 6, 0.4), wallMat);
+      backWall.position.set(0, 3, -6);
+      gameplaySceneGroup.add(backWall);
+
+      const sideWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 6, 24), wallMat);
+      sideWall.position.set(-8, 3, 0);
+      gameplaySceneGroup.add(sideWall);
+
+      // Warm wooden baseboard trims
+      const trimMat = new THREE.MeshStandardMaterial({ color: 0xd4a373, roughness: 0.5 });
+      const backTrim = new THREE.Mesh(new THREE.BoxGeometry(24, 0.28, 0.45), trimMat);
+      backTrim.position.set(0, 0.14, -5.95);
+      gameplaySceneGroup.add(backTrim);
+
+      const sideTrim = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.28, 24), trimMat);
+      sideTrim.position.set(-7.95, 0.14, 0);
+      gameplaySceneGroup.add(sideTrim);
+
+      // Supermarket Store Name Banner
+      const storeBanner = new THREE.Mesh(
+        new THREE.BoxGeometry(8, 0.8, 0.1),
+        new THREE.MeshStandardMaterial({ color: 0xe76f51, roughness: 0.35 })
+      );
+      storeBanner.position.set(0, 5, -5.7);
+      gameplaySceneGroup.add(storeBanner);
+
+      // Supermarket Neon Sign Border (Upgradable)
+      const storeNeon = new THREE.Mesh(
+        new THREE.BoxGeometry(8.25, 0.92, 0.14),
+        new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.8, roughness: 0.2 })
+      );
+      storeNeon.position.set(0, 5, -5.68);
+      storeNeon.visible = false;
+      gameplaySceneGroup.add(storeNeon);
+      gameplaySceneGroup.userData.neonSign = storeNeon;
+
+      // CASHIER COUNTER (Warm wood with modern front panels)
+      const counterGroup = new THREE.Group();
+      counterGroup.position.set(0, 0, 0);
+
+      const counterDesk = new THREE.Mesh(
+        new THREE.BoxGeometry(3.6, 0.95, 1.2),
+        new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.5 })
+      );
+      counterDesk.position.set(0, 0.475, 0);
+      counterGroup.add(counterDesk);
+
+      // Stainless Conveyor Belt on counter
+      const conveyor = new THREE.Mesh(
+        new THREE.BoxGeometry(2.8, 0.05, 0.65),
+        new THREE.MeshStandardMaterial({ color: 0x2b2d42, roughness: 0.4 })
+      );
+      conveyor.position.set(-0.2, 0.96, 0.1);
+      counterGroup.add(conveyor);
+
+      // Modern Digital POS Cash Register
+      const registerBase = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55, 0.15, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0x212529 })
+      );
+      registerBase.position.set(1.3, 1.02, -0.15);
+      counterGroup.add(registerBase);
+
+      const regScreen = new THREE.Mesh(
+        new THREE.BoxGeometry(0.45, 0.35, 0.05),
+        new THREE.MeshStandardMaterial({ color: 0x111111 })
+      );
+      regScreen.position.set(1.3, 1.3, -0.15);
+      regScreen.rotation.x = -0.2;
+      counterGroup.add(regScreen);
+
+      const screenFace = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.4, 0.28),
+        new THREE.MeshBasicMaterial({ color: 0x00f5d4 })
+      );
+      screenFace.position.set(1.3, 1.305, -0.12);
+      screenFace.rotation.x = -0.2;
+      counterGroup.add(screenFace);
+
+      // Barcode Scanner Mount
+      const scanner = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.04, 0.06, 0.22, 16),
+        new THREE.MeshStandardMaterial({ color: 0xff477e })
+      );
+      scanner.position.set(0.9, 1.05, 0.2);
+      scanner.rotation.z = -0.3;
+      counterGroup.add(scanner);
+
+      counterGroup.userData = { counterDesk, conveyor, registerBase, regScreen, screenFace, scanner };
+      gameplaySceneGroup.userData.counterGroup = counterGroup;
+      gameplaySceneGroup.add(counterGroup);
+
+      // HIGH-DENSITY SHELVES (Gondola Racks filled with products)
+      gameplaySceneGroup.userData.shelfPlanks = [];
+      function createFilledShelf(x, z) {
+        const shelf = new THREE.Group();
+        const frameMat = new THREE.MeshStandardMaterial({ color: 0xd8e2dc, roughness: 0.5 });
+        
+        // 3 Tiers
+        for (let t = 0; t < 3; t++) {
+          const plank = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.06, 0.7), frameMat);
+          plank.position.set(0, 0.6 + t * 0.7, 0);
+          shelf.add(plank);
+          gameplaySceneGroup.userData.shelfPlanks.push(plank);
+
+          // Fill tier densely with colorful products (boxes & cans)
+          const itemsPerTier = 7;
+          for (let i = 0; i < itemsPerTier; i++) {
+            const isBox = (i + t) % 2 === 0;
+            const hue = (i * 0.14 + t * 0.3) % 1;
+            const pMat = new THREE.MeshStandardMaterial({ color: new THREE.Color().setHSL(hue, 0.8, 0.6) });
+            
+            let prod;
+            if (isBox) {
+              prod = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.35, 0.22), pMat);
+              prod.position.set(-1.2 + i * 0.4, 0.8 + t * 0.7, 0);
+            } else {
+              prod = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.32, 16), pMat);
+              prod.position.set(-1.2 + i * 0.4, 0.78 + t * 0.7, 0);
+            }
+            shelf.add(prod);
+          }
+        }
+        
+        // Vertical Posts
+        const postGeo = new THREE.CylinderGeometry(0.05, 0.05, 2.3, 12);
+        const p1 = new THREE.Mesh(postGeo, frameMat); p1.position.set(-1.55, 1.15, 0); shelf.add(p1);
+        const p2 = new THREE.Mesh(postGeo, frameMat); p2.position.set(1.55, 1.15, 0); shelf.add(p2);
+
+        // Hanging Promo Sign
+        const promo = new THREE.Mesh(
+          new THREE.BoxGeometry(1.2, 0.35, 0.02),
+          new THREE.MeshStandardMaterial({ color: 0xd90429 })
+        );
+        promo.position.set(0, 2.3, 0.36);
+        shelf.add(promo);
+
+        shelf.position.set(x, 0, z);
+        return shelf;
+      }
+
+      gameplaySceneGroup.add(createFilledShelf(-3.8, -3.2));
+      gameplaySceneGroup.add(createFilledShelf(1.2, -3.2));
+      gameplaySceneGroup.add(createFilledShelf(-5.2, 0.8));
+
+      // DRINKS REFRIGERATOR (Cooler with semi-transparent glass)
+      const fridge = new THREE.Group();
+      const fridgeBody = new THREE.Mesh(
+        new THREE.BoxGeometry(2.2, 3.2, 0.9),
+        new THREE.MeshStandardMaterial({ color: 0x457b9d })
+      );
+      fridgeBody.position.set(4.6, 1.6, -3.5);
+      fridge.add(fridgeBody);
+
+      const fridgeGlass = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.8, 2.8),
+        new THREE.MeshPhysicalMaterial({ color: 0xa2d2ff, transparent: true, opacity: 0.5, roughness: 0.1 })
+      );
+      fridgeGlass.position.set(4.6, 1.6, -3.04);
+      fridge.add(fridgeGlass);
+      gameplaySceneGroup.add(fridge);
+
+      // ENTRANCE AUTOMATIC DOORS
+      const entrance = new THREE.Group();
+      entrance.position.set(6, 0, 2);
+      const eDoorMat = new THREE.MeshStandardMaterial({ color: 0xa2d2ff, transparent: true, opacity: 0.6 });
+      const eDoorL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.8, 1.2), eDoorMat);
+      eDoorL.position.set(0, 1.4, -0.6);
+      entrance.add(eDoorL);
+      const eDoorR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.8, 1.2), eDoorMat);
+      eDoorR.position.set(0, 1.4, 0.6);
+      entrance.add(eDoorR);
+      gameplaySceneGroup.add(entrance);
+      gameplaySceneGroup.userData.entrance = { left: eDoorL, right: eDoorR };
+    }
+
+    /* Build 3D item geometry for conveyor */
+    function create3DGroceryItem(data) {
+      const group = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({ color: data.color, roughness: 0.4 });
+      
+      let mesh;
+      if (data.type === 'bottle') {
+        mesh = new THREE.CylinderGeometry(0.09, 0.09, 0.32, 16);
+        const b = new THREE.Mesh(mesh, mat);
+        const cap = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.04, 0.04, 0.06, 16),
+          new THREE.MeshStandardMaterial({ color: 0x0077b6 })
+        );
+        cap.position.y = 0.18;
+        b.add(cap);
+        group.add(b);
+      } else if (data.type === 'bread') {
+        mesh = new THREE.BoxGeometry(0.3, 0.2, 0.18);
+        group.add(new THREE.Mesh(mesh, mat));
+      } else if (data.type === 'fruit') {
+        mesh = new THREE.SphereGeometry(0.12, 16, 16);
+        group.add(new THREE.Mesh(mesh, mat));
+      } else {
+        mesh = new THREE.BoxGeometry(0.22, 0.28, 0.16);
+        group.add(new THREE.Mesh(mesh, mat));
+      }
+
+      // Outline / glow ring indicator
+      const glowRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.16, 0.22, 24),
+        new THREE.MeshBasicMaterial({ color: 0x52b788, side: THREE.DoubleSide, transparent: true, opacity: 0 })
+      );
+      glowRing.rotation.x = -Math.PI / 2;
+      glowRing.position.y = -0.12;
+      group.add(glowRing);
+
+      group.userData = { ...data, scanned: false, glow: glowRing };
+      return group;
+    }
+
+    /* =========================================================================
+       GAME STATE MANAGEMENT & PROGRESSION (REPUTATION, UPGRADES, RANDOM EVENTS)
+       ========================================================================= */
+    const gameState = {
+      currentScreen: 'menu',
+      playerGender: 'girl',
+      playerSkin: 'fair',
+      playerHairStyle: 0,
+      playerHairColor: 'pink',
+      playerOutfit: 0,
+      playerAccessory: 0,
+      playerName: 'Chibi Mei',
+      
+      // Shift & transaction state (08:00 to 19:00 = 480 to 1140 minutes)
+      gameMinutes: 8 * 60,
+      shiftActive: false,
+      customersServed: 0,
+      correctTransactions: 0,
+      wrongTransactions: 0,
+      totalEarned: 0,
+
+      // Persistent Reputation & Savings
+      reputation: 3.0,
+      comboStreak: 0,
+      playerSavings: 15000,
+      purchasedUpgrades: [],
+
+      currentBillTotal: 0,
+      currentCashReceived: 0,
+      currentCustomerItems: [],
+      scannedCount: 0,
+      isCustomerWalking: false
+    };
+
+    function loadPersistentData() {
+      try {
+        const saved = localStorage.getItem('cashier_sim_save');
+        if (saved) {
+          const d = JSON.parse(saved);
+          if (typeof d.reputation === 'number') gameState.reputation = Math.max(1, Math.min(5, d.reputation));
+          if (typeof d.playerSavings === 'number') gameState.playerSavings = Math.max(0, d.playerSavings);
+          if (Array.isArray(d.purchasedUpgrades)) gameState.purchasedUpgrades = d.purchasedUpgrades;
+          if (d.playerName) gameState.playerName = d.playerName;
+        }
+      } catch (e) {
+        console.warn('LocalStorage not available:', e);
+      }
+    }
+
+    function savePersistentData() {
+      try {
+        const d = {
+          reputation: gameState.reputation,
+          playerSavings: gameState.playerSavings,
+          purchasedUpgrades: gameState.purchasedUpgrades,
+          playerName: gameState.playerName
+        };
+        localStorage.setItem('cashier_sim_save', JSON.stringify(d));
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    loadPersistentData();
+
+    /* =========================================================================
+       UPGRADES CATALOG & 3D VISUAL APPLICATION
+       ========================================================================= */
+    const UPGRADES_CATALOG = [
+      {
+        id: 'fast_scanner',
+        name: 'Scanner Laser Turbo ⚡',
+        icon: '⚡',
+        price: 20000,
+        desc: 'Scan barcode super cepat dengan kilau emas neon dan nada beep ganda!'
+      },
+      {
+        id: 'deluxe_shelves',
+        name: 'Gondola Kayu Jati Mewah 🪵',
+        icon: '🪵',
+        price: 35000,
+        desc: 'Rak gondola supermarket kayu jati estetik yang membuat interior toko tampak eksklusif.'
+      },
+      {
+        id: 'modern_register',
+        name: 'Mesin POS Futuristik 🖥️',
+        icon: '🖥️',
+        price: 45000,
+        desc: 'Mesin kasir digital midnight blue elegan dengan layar neon cyan glow modern.'
+      },
+      {
+        id: 'premium_floor',
+        name: 'Lantai Marmer Terakota 🏛️',
+        icon: '🏛️',
+        price: 30000,
+        desc: 'Lantai marmer terakota bersih berkilau hangat yang membuat pelanggan betah belanja.'
+      },
+      {
+        id: 'neon_sign',
+        name: 'Signboard Neon Estetik ✨',
+        icon: '✨',
+        price: 50000,
+        desc: 'Lampu neon bercahaya pink-magenta berkedip indah di atas signboard toko.'
+      }
+    ];
+
+    function applyUpgradesToScenes() {
+      const owned = gameState.purchasedUpgrades || [];
+
+      // 1. Fast Scanner
+      if (gameplaySceneGroup.userData.counterGroup && gameplaySceneGroup.userData.counterGroup.userData.scanner) {
+        const sc = gameplaySceneGroup.userData.counterGroup.userData.scanner;
+        if (owned.includes('fast_scanner')) {
+          sc.material.color.setHex(0xffb703);
+          sc.material.metalness = 0.7;
+          sc.material.roughness = 0.2;
+        } else {
+          sc.material.color.setHex(0xff477e);
+          sc.material.metalness = 0;
+          sc.material.roughness = 0.5;
+        }
+      }
+
+      // 2. Deluxe Shelves
+      if (gameplaySceneGroup.userData.shelfPlanks) {
+        const isDeluxe = owned.includes('deluxe_shelves');
+        gameplaySceneGroup.userData.shelfPlanks.forEach(p => {
+          p.material.color.setHex(isDeluxe ? 0x6f4e37 : 0xd8e2dc);
+        });
+      }
+
+      // 3. Modern Register
+      if (gameplaySceneGroup.userData.counterGroup) {
+        const cg = gameplaySceneGroup.userData.counterGroup.userData;
+        if (cg.registerBase && cg.screenFace) {
+          if (owned.includes('modern_register')) {
+            cg.registerBase.material.color.setHex(0x0f172a);
+            cg.screenFace.material.color.setHex(0x06d6a0);
+          } else {
+            cg.registerBase.material.color.setHex(0x212529);
+            cg.screenFace.material.color.setHex(0x00f5d4);
+          }
+        }
+      }
+
+      // 4. Premium Floor
+      if (gameplaySceneGroup.userData.floor) {
+        const fl = gameplaySceneGroup.userData.floor;
+        if (owned.includes('premium_floor')) {
+          fl.material.color.setHex(0xf4a261);
+          fl.material.roughness = 0.18;
+          fl.material.metalness = 0.15;
+        } else {
+          fl.material.color.setHex(0xf5e6d3);
+          fl.material.roughness = 0.35;
+          fl.material.metalness = 0;
+        }
+      }
+
+      // 5. Neon Sign
+      const hasNeon = owned.includes('neon_sign');
+      if (gameplaySceneGroup.userData.neonSign) {
+        gameplaySceneGroup.userData.neonSign.visible = hasNeon;
+      }
+      if (menuSceneGroup.userData.neonSign) {
+        menuSceneGroup.userData.neonSign.visible = hasNeon;
+      }
+    }
+
+    function openUpgradeModal() {
+      audio.click();
+      renderUpgradeShop();
+      document.getElementById('upgrade-modal').classList.add('active');
+    }
+
+    function closeUpgradeModal() {
+      audio.click();
+      document.getElementById('upgrade-modal').classList.remove('active');
+    }
+
+    function renderUpgradeShop() {
+      document.getElementById('shop-savings-val').innerText = `Rp${gameState.playerSavings.toLocaleString('id-ID')}`;
+      const listBox = document.getElementById('upgrade-list-box');
+      listBox.innerHTML = '';
+
+      UPGRADES_CATALOG.forEach(upg => {
+        const itemEl = document.createElement('div');
+        const isOwned = gameState.purchasedUpgrades.includes(upg.id);
+        const canAfford = gameState.playerSavings >= upg.price;
+
+        itemEl.className = `upgrade-item ${isOwned ? 'owned' : ''}`;
+        
+        let btnHtml = '';
+        if (isOwned) {
+          btnHtml = `<button class="btn-buy-upgrade owned">✅ Dimiliki</button>`;
+        } else if (canAfford) {
+          btnHtml = `<button class="btn-buy-upgrade ready" onclick="buyUpgrade('${upg.id}')">Beli - Rp${upg.price.toLocaleString('id-ID')}</button>`;
+        } else {
+          const shortage = upg.price - gameState.playerSavings;
+          btnHtml = `<button class="btn-buy-upgrade locked" disabled>Kurang Rp${shortage.toLocaleString('id-ID')}</button>`;
+        }
+
+        itemEl.innerHTML = `
+          <div style="font-size: 32px; width: 44px; text-align: center;">${upg.icon}</div>
+          <div class="upgrade-info">
+            <div class="upgrade-title">${upg.name}</div>
+            <div class="upgrade-desc">${upg.desc}</div>
+            <div class="upgrade-price">Biaya: Rp${upg.price.toLocaleString('id-ID')}</div>
+          </div>
+          <div>${btnHtml}</div>
+        `;
+        listBox.appendChild(itemEl);
+      });
+    }
+
+    window.buyUpgrade = function(id) {
+      const upg = UPGRADES_CATALOG.find(u => u.id === id);
+      if (!upg || gameState.purchasedUpgrades.includes(id)) return;
+      if (gameState.playerSavings < upg.price) {
+        audio.error();
+        showToast('Tabungan belum cukup!');
+        return;
+      }
+
+      gameState.playerSavings -= upg.price;
+      gameState.purchasedUpgrades.push(id);
+      savePersistentData();
+      audio.success();
+      showToast(`🎉 Berhasil Membeli ${upg.name}!`);
+      applyUpgradesToScenes();
+      renderUpgradeShop();
+      const resSavingsEl = document.getElementById('res-savings-money');
+      if (resSavingsEl) resSavingsEl.innerText = `Rp${gameState.playerSavings.toLocaleString('id-ID')}`;
+    };
+
+    /* =========================================================================
+       REPUTATION & STREAK HUD UPDATES
+       ========================================================================= */
+    function updateReputationUI() {
+      const rep = gameState.reputation;
+      const starsNum = Math.round(rep);
+      let starStr = '⭐'.repeat(Math.max(1, Math.min(5, starsNum)));
+      const repStarsEl = document.getElementById('hud-rep-stars');
+      if (repStarsEl) repStarsEl.innerText = starStr;
+      
+      const repNumEl = document.getElementById('hud-rep-num');
+      if (repNumEl) repNumEl.innerText = `${rep.toFixed(1)} / 5.0`;
+
+      const repBarEl = document.getElementById('hud-rep-bar');
+      if (repBarEl) {
+        const pct = Math.max(0, Math.min(100, (rep / 5) * 100));
+        repBarEl.style.width = `${pct}%`;
+      }
+
+      const streakBadge = document.getElementById('hud-streak-badge');
+      if (streakBadge) {
+        if (gameState.comboStreak >= 2) {
+          streakBadge.style.display = 'inline-block';
+          streakBadge.innerText = `🔥 x${gameState.comboStreak}`;
+        } else {
+          streakBadge.style.display = 'none';
+        }
+      }
+    }
+
+    /* =========================================================================
+       RANDOM EVENTS SYSTEM (PROMO, PRICE CHECK, CUSTOMER REQUEST, GOLDEN ITEM)
+       ========================================================================= */
+    let activeRandomEvent = null;
+
+    function resetRandomEvent() {
+      activeRandomEvent = null;
+      const banner = document.getElementById('event-banner');
+      if (banner) banner.style.display = 'none';
+      const bubble = document.getElementById('customer-bubble');
+      if (bubble) bubble.style.display = 'none';
+    }
+
+    function checkAndTriggerRandomEvent() {
+      resetRandomEvent();
+      // ~45% chance to trigger a fun event
+      if (Math.random() > 0.45 || conveyorItems.length === 0) return;
+
+      const types = ['promo', 'price_check', 'request', 'surprise_item'];
+      const chosenType = types[Math.floor(Math.random() * types.length)];
+
+      if (chosenType === 'surprise_item') {
+        const item = conveyorItems[Math.floor(Math.random() * conveyorItems.length)];
+        item.userData.isSurprise = true;
+        item.traverse(c => {
+          if (c.isMesh && c !== item.userData.glow) {
+            c.material = new THREE.MeshStandardMaterial({
+              color: 0xffd166,
+              emissive: 0xffa200,
+              emissiveIntensity: 0.55,
+              metalness: 0.8,
+              roughness: 0.2
+            });
+          }
+        });
+        const star = new THREE.Mesh(
+          new THREE.OctahedronGeometry(0.09, 0),
+          new THREE.MeshBasicMaterial({ color: 0xffffff })
+        );
+        star.position.y = 0.32;
+        item.add(star);
+        item.userData.sparkleStar = star;
+        activeRandomEvent = { type: 'surprise_item', targetItem: item };
+        showToast('✨ Pelanggan membawa Barang Emas Langka! Scan untuk bonus!');
+      } else if (chosenType === 'promo') {
+        const item = conveyorItems[Math.floor(Math.random() * conveyorItems.length)];
+        item.userData.isPromoCandidate = true;
+        activeRandomEvent = { type: 'promo', targetItem: item };
+        
+        const banner = document.getElementById('event-banner');
+        const bannerText = document.getElementById('event-banner-text');
+        const bannerBtn = document.getElementById('btn-event-action');
+        bannerText.innerText = `🏷️ Promo Toko: ${item.userData.name} Diskon 20%!`;
+        bannerBtn.innerText = 'Terapkan Diskon -20%';
+        bannerBtn.onclick = () => applyPromoDiscount(item);
+        banner.style.display = 'block';
+      } else if (chosenType === 'price_check') {
+        const item = conveyorItems[Math.floor(Math.random() * conveyorItems.length)];
+        item.userData.hasPriceError = true;
+        item.userData.realPrice = item.userData.price;
+        item.userData.price = item.userData.realPrice + 10000;
+        activeRandomEvent = { type: 'price_check', targetItem: item };
+
+        const banner = document.getElementById('event-banner');
+        const bannerText = document.getElementById('event-banner-text');
+        const bannerBtn = document.getElementById('btn-event-action');
+        bannerText.innerText = `⚠️ Barcode Glitch: ${item.userData.name} salah harga!`;
+        bannerBtn.innerText = 'Koreksi Barcode';
+        bannerBtn.onclick = () => correctPriceCheck(item);
+        banner.style.display = 'block';
+      } else if (chosenType === 'request') {
+        const requests = [
+          'Bisa minta kantong belanja ramah lingkungan kak? 🛍️',
+          'Tolong bantu cetak struk belanja ya! 🧾',
+          'Boleh dibungkus yang rapi ya kak! ✨',
+          'Halo kak! Semangat kerjanya hari ini ya! 🌸'
+        ];
+        const text = requests[Math.floor(Math.random() * requests.length)];
+        const bubble = document.getElementById('customer-bubble');
+        const bubbleText = document.getElementById('cust-bubble-text');
+        const bubbleBtn = document.getElementById('btn-cust-bubble-ok');
+        bubbleText.innerText = `"${text}"`;
+        bubble.style.display = 'block';
+        bubbleBtn.onclick = () => {
+          audio.success();
+          const extraTip = 2000;
+          gameState.totalEarned += extraTip;
+          gameState.playerSavings += extraTip;
+          savePersistentData();
+          document.getElementById('hud-money').innerText = `Rp${gameState.totalEarned.toLocaleString('id-ID')}`;
+          bubbleText.innerText = 'Terima kasih banyak kak, ramah sekali! ❤️';
+          bubbleBtn.style.display = 'none';
+          showToast(`💖 Pelanggan senang! +Tip Rp${extraTip.toLocaleString('id-ID')}`);
+          animateCustomerHappy(() => {});
+          setTimeout(() => {
+            bubble.style.display = 'none';
+            bubbleBtn.style.display = 'block';
+          }, 1800);
+        };
+      }
+    }
+
+    function applyPromoDiscount(item) {
+      if (!item) return;
+      item.userData.isPromo = true;
+      item.userData.isPromoCandidate = false;
+      const oldPrice = item.userData.price;
+      item.userData.price = Math.round((oldPrice * 0.8) / 100) * 100;
+      audio.chime();
+      showToast(`🏷️ Diskon 20% diterapkan untuk ${item.userData.name}!`);
+      document.getElementById('event-banner').style.display = 'none';
+      recalculateCurrentBill();
+    }
+
+    function correctPriceCheck(item) {
+      if (!item || !item.userData.hasPriceError) return;
+      item.userData.hasPriceError = false;
+      item.userData.price = item.userData.realPrice;
+      audio.scan();
+      showToast(`✅ Barcode dikoreksi ke Rp${item.userData.price.toLocaleString('id-ID')}!`);
+      document.getElementById('event-banner').style.display = 'none';
+      recalculateCurrentBill();
+    }
+
+    function recalculateCurrentBill() {
+      let sum = 0;
+      conveyorItems.forEach(it => {
+        if (it.userData.scanned) sum += it.userData.price;
+      });
+      gameState.currentBillTotal = sum;
+      document.getElementById('reg-display').innerText = `TOTAL: Rp${sum.toLocaleString('id-ID')}`;
+      const receipt = document.getElementById('items-receipt');
+      receipt.innerHTML = '';
+      conveyorItems.forEach(it => {
+        if (it.userData.scanned) {
+          const row = document.createElement('div');
+          row.className = 'item-row scanned';
+          let tag = '';
+          if (it.userData.isPromo) tag = ' (Promo -20%)';
+          else if (it.userData.isSurprise) tag = ' (Emas ✨)';
+          row.innerHTML = `<span>${it.userData.name}${tag}</span><span>Rp${it.userData.price.toLocaleString('id-ID')}</span>`;
+          receipt.appendChild(row);
+        }
+      });
+    }
+
+    function formatGameTime(mins) {
+      const h = Math.floor(mins / 60);
+      const m = Math.floor(mins % 60);
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    function updateClockUI() {
+      const clockEl = document.getElementById('hud-clock');
+      if (clockEl) {
+        clockEl.innerText = formatGameTime(gameState.gameMinutes);
+      }
+      const statusEl = document.getElementById('hud-status');
+      if (statusEl) {
+        if (gameState.gameMinutes >= 19 * 60) {
+          statusEl.innerText = 'TUTUP';
+          statusEl.style.background = '#ffe5ec';
+          statusEl.style.color = '#e76f51';
+        } else {
+          statusEl.innerText = 'BUKA';
+          statusEl.style.background = '#d8f3dc';
+          statusEl.style.color = '#2b9348';
+        }
+      }
+    }
+
+    function showToast(text, isError = false) {
+      const toast = document.getElementById('toast-msg');
+      toast.innerText = text;
+      toast.style.background = isError ? '#e76f51' : '#2a9d8f';
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 2200);
+    }
+
+    function switchScreen(screenName) {
+      gameState.currentScreen = screenName;
+      document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+      const activeEl = document.getElementById(`screen-${screenName}`);
+      if (activeEl) activeEl.classList.add('active');
+
+      // Toggle 3D groups visibility
+      menuSceneGroup.visible = (screenName === 'menu');
+      selectSceneGroup.visible = (screenName === 'select');
+      dressupSceneGroup.visible = (screenName === 'dressup');
+      gameplaySceneGroup.visible = (screenName === 'gameplay');
+
+      // Apply upgrades to whatever scenes are visible
+      applyUpgradesToScenes();
+
+      // Configure Camera and Controls for target view
+      if (screenName === 'menu') {
+        camera.position.set(0, 2.2, 5.5);
+        controls.target.set(0, 1.8, 0);
+      } else if (screenName === 'select') {
+        camera.position.set(0, 1.6, 4.4);
+        controls.target.set(0, 1.1, 0);
+      } else if (screenName === 'dressup') {
+        camera.position.set(-0.8, 1.6, 3.6);
+        controls.target.set(-0.8, 1.1, 0);
+        updateDressupModel();
+      } else if (screenName === 'gameplay') {
+        resetGameplayCamera();
+        setupShift();
+      }
+      controls.update();
+    }
+
+    function resetGameplayCamera() {
+      camera.position.set(0.3, 2.7, 3.4);
+      controls.target.set(-0.2, 1.0, 0.1);
+      controls.update();
+    }
+
+    /* Start / Reset Shift */
+    function setupShift() {
+      gameState.gameMinutes = 8 * 60; // Reset back to 08:00
+      gameState.shiftActive = true;
+      gameState.customersServed = 0;
+      gameState.correctTransactions = 0;
+      gameState.wrongTransactions = 0;
+      gameState.totalEarned = 0;
+
+      updateClockUI();
+      updateReputationUI();
+      resetRandomEvent();
+      applyUpgradesToScenes();
+
+      document.getElementById('hud-cashier-name').innerText = gameState.playerName;
+      document.getElementById('hud-money').innerText = 'Rp0';
+      document.getElementById('hud-customer-count').innerText = '0 orang';
+
+      // Setup Player Cashier model behind counter
+      if (playerCashierModel) gameplaySceneGroup.remove(playerCashierModel);
+      playerCashierModel = createChibiCharacter({
+        gender: gameState.playerGender,
+        skinColor: SKIN_COLORS[gameState.playerSkin],
+        hairStyle: gameState.playerHairStyle,
+        hairColor: HAIR_COLORS[gameState.playerHairColor],
+        outfitColor: gameState.playerOutfit,
+        accessory: gameState.playerAccessory
+      });
+      playerCashierModel.position.set(0.6, 0, -0.7);
+      playerCashierModel.rotation.y = 0;
+      gameplaySceneGroup.add(playerCashierModel);
+
+      spawnNextCustomer();
+    }
+
+    function endShift() {
+      if (!gameState.shiftActive) return;
+      gameState.shiftActive = false;
+
+      resetRandomEvent();
+
+      // Close modal if open
+      const modal = document.getElementById('payment-modal');
+      if (modal) modal.classList.remove('active');
+
+      // Clear conveyor items
+      conveyorItems.forEach(item => gameplaySceneGroup.remove(item));
+      conveyorItems = [];
+
+      // Remove customer model
+      if (customerModel) {
+        gameplaySceneGroup.remove(customerModel);
+        customerModel = null;
+      }
+      gameState.isCustomerWalking = false;
+
+      showDayResults();
+    }
+
+    /* Spawn Customer and walking loop */
+    function spawnNextCustomer() {
+      if (!gameState.shiftActive || gameState.gameMinutes >= 19 * 60) {
+        endShift();
+        return;
+      }
+      
+      resetRandomEvent();
+
+      // Clear previous items from counter
+      conveyorItems.forEach(item => gameplaySceneGroup.remove(item));
+      conveyorItems = [];
+      gameState.scannedCount = 0;
+      gameState.currentBillTotal = 0;
+      document.getElementById('btn-pay').style.display = 'none';
+      document.getElementById('reg-display').innerText = 'TOTAL: Rp0';
+      document.getElementById('items-receipt').innerHTML = '';
+      document.getElementById('scan-hint').innerText = '⏳ Pelanggan datang...';
+
+      // Remove old customer
+      if (customerModel) gameplaySceneGroup.remove(customerModel);
+
+      // Random Chibi Customer
+      const custGender = Math.random() > 0.5 ? 'girl' : 'boy';
+      const skins = ['fair', 'peach', 'honey'];
+      const hairStyles = [0, 1, 2];
+      const hairCols = ['black', 'brown', 'blonde', 'pink'];
+
+      customerModel = createChibiCharacter({
+        gender: custGender,
+        skinColor: SKIN_COLORS[skins[Math.floor(Math.random() * skins.length)]],
+        hairStyle: hairStyles[Math.floor(Math.random() * hairStyles.length)],
+        hairColor: HAIR_COLORS[hairCols[Math.floor(Math.random() * hairCols.length)]],
+        outfitColor: Math.floor(Math.random() * 3),
+        accessory: Math.random() > 0.6 ? 2 : 0
+      });
+
+      // Cute shopping basket in hand
+      const basket = new THREE.Mesh(
+        new THREE.BoxGeometry(0.35, 0.22, 0.28),
+        new THREE.MeshStandardMaterial({ color: 0xffb703 })
+      );
+      basket.position.set(0.35, 0.6, 0.2);
+      customerModel.add(basket);
+
+      // Start position outside door
+      customerModel.position.set(5.8, 0, 2);
+      customerModel.rotation.y = -Math.PI / 2;
+      gameplaySceneGroup.add(customerModel);
+
+      // Select 2 to 4 random items
+      const itemCount = 2 + Math.floor(Math.random() * 3);
+      gameState.currentCustomerItems = [];
+      for (let i = 0; i < itemCount; i++) {
+        const prod = groceryCatalog[Math.floor(Math.random() * groceryCatalog.length)];
+        gameState.currentCustomerItems.push(prod);
+      }
+
+      // Animate Customer walking to counter (standing beside conveyor, not blocking the table)
+      gameState.isCustomerWalking = true;
+      const walkTarget = { x: -2.1, z: 0.85 };
+      const startPos = { x: 5.8, z: 2 };
+      const startTime = performance.now();
+      const duration = 2400;
+
+      function walkAnim(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Position interpolation
+        customerModel.position.x = startPos.x + (walkTarget.x - startPos.x) * progress;
+        customerModel.position.z = startPos.z + (walkTarget.z - startPos.z) * progress;
+        customerModel.rotation.y = -Math.PI / 2 - 0.15;
+
+        // Cute Leg & Basket Swing
+        const swing = Math.sin(progress * Math.PI * 8) * 0.35;
+        if (customerModel.userData.legs) {
+          customerModel.userData.legs[0].rotation.x = swing;
+          customerModel.userData.legs[1].rotation.x = -swing;
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(walkAnim);
+        } else {
+          // Arrived at counter queue! Face towards cashier & counter
+          gameState.isCustomerWalking = false;
+          if (customerModel.userData.legs) {
+            customerModel.userData.legs[0].rotation.x = 0;
+            customerModel.userData.legs[1].rotation.x = 0;
+          }
+          customerModel.rotation.y = 0.55;
+          customerModel.remove(basket);
+          placeItemsOnConveyor();
+          checkAndTriggerRandomEvent();
+        }
+      }
+      requestAnimationFrame(walkAnim);
+    }
+
+    function placeItemsOnConveyor() {
+      document.getElementById('scan-hint').innerText = '👉 Klik barang di meja!';
+      audio.click();
+
+      gameState.currentCustomerItems.forEach((itemData, index) => {
+        const item3D = create3DGroceryItem(itemData);
+        // Place in a neat row on conveyor
+        item3D.position.set(-1.1 + index * 0.45, 1.1, 0.1);
+        gameplaySceneGroup.add(item3D);
+        conveyorItems.push(item3D);
+      });
+    }
+
+    /* Raycaster for Item Scanning (Ensures OrbitControls drag doesn't conflict) */
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    let mouseDownPos = { x: 0, y: 0 };
+
+    window.addEventListener('pointerdown', (e) => {
+      mouseDownPos = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('pointerup', (e) => {
+      const dist = Math.hypot(e.clientX - mouseDownPos.x, e.clientY - mouseDownPos.y);
+      if (dist > 6) return; // Player was dragging camera orbit, not clicking
+
+      if (gameState.currentScreen !== 'gameplay' || gameState.isCustomerWalking) return;
+
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      const intersects = raycaster.intersectObjects(conveyorItems, true);
+      if (intersects.length > 0) {
+        let hitGroup = intersects[0].object;
+        while (hitGroup.parent && !hitGroup.userData.price) {
+          hitGroup = hitGroup.parent;
+        }
+
+        if (hitGroup && hitGroup.userData.price && !hitGroup.userData.scanned) {
+          scanItem(hitGroup);
+        }
+      }
+    });
+
+    function scanItem(item3D) {
+      item3D.userData.scanned = true;
+      gameState.scannedCount++;
+
+      const hasTurbo = gameState.purchasedUpgrades.includes('fast_scanner');
+      if (hasTurbo) {
+        audio.turboScan();
+      } else {
+        audio.scan();
+      }
+
+      // Bonus for rare Golden Item
+      if (item3D.userData.isSurprise) {
+        audio.chime();
+        const bonus = 5000;
+        gameState.totalEarned += bonus;
+        gameState.playerSavings += bonus;
+        savePersistentData();
+        document.getElementById('hud-money').innerText = `Rp${gameState.totalEarned.toLocaleString('id-ID')}`;
+        showToast(`🌟 WOW! Barang Emas Langka! Bonus Kasir +Rp${bonus.toLocaleString('id-ID')}! 🎁`);
+      }
+
+      // Visual feedback: slide slightly forward & glow
+      item3D.position.x += hasTurbo ? 0.2 : 0.12;
+      item3D.position.z -= hasTurbo ? 0.2 : 0.15;
+      if (item3D.userData.glow) {
+        item3D.userData.glow.material.opacity = 1;
+        item3D.userData.glow.material.color.setHex(item3D.userData.isSurprise ? 0xffd166 : (hasTurbo ? 0x06d6a0 : 0x52b788));
+      }
+
+      // Add to running total
+      gameState.currentBillTotal += item3D.userData.price;
+      document.getElementById('reg-display').innerText = `TOTAL: Rp${gameState.currentBillTotal.toLocaleString('id-ID')}`;
+
+      // Receipt row
+      const receipt = document.getElementById('items-receipt');
+      const row = document.createElement('div');
+      row.className = 'item-row scanned';
+      let tag = '';
+      if (item3D.userData.isPromo) tag = ' (Promo -20%)';
+      else if (item3D.userData.isSurprise) tag = ' (Emas ✨)';
+      row.innerHTML = `<span>${item3D.userData.name}${tag}</span><span>Rp${item3D.userData.price.toLocaleString('id-ID')}</span>`;
+      receipt.appendChild(row);
+
+      // Check if all scanned
+      if (gameState.scannedCount >= gameState.currentCustomerItems.length) {
+        document.getElementById('scan-hint').innerText = '✅ Semua barang discan!';
+        document.getElementById('btn-pay').style.display = 'block';
+      }
+    }
+
+    /* PAYMENT & CHANGE CALCULATION */
+    document.getElementById('btn-pay').addEventListener('click', () => {
+      audio.click();
+      const total = gameState.currentBillTotal;
+      
+      // Calculate realistic cash given by customer (higher than total)
+      let cash = Math.ceil(total / 10000) * 10000;
+      if (cash === total) cash += 10000; // Guarantee change needed
+      gameState.currentCashReceived = cash;
+
+      const exactChange = cash - total;
+
+      document.getElementById('pay-total-val').innerText = `Rp${total.toLocaleString('id-ID')}`;
+      document.getElementById('pay-cash-val').innerText = `Rp${cash.toLocaleString('id-ID')}`;
+
+      // Generate 3 Multiple Choice Options
+      const optionsBox = document.getElementById('change-options-box');
+      optionsBox.innerHTML = '';
+
+      const wrong1 = Math.max(1000, exactChange + (Math.random() > 0.5 ? 2000 : -2000));
+      const wrong2 = Math.max(1000, exactChange + (Math.random() > 0.5 ? 5000 : -3000));
+      const choices = Array.from(new Set([exactChange, wrong1, wrong2]));
+      while (choices.length < 3) choices.push(exactChange + choices.length * 1000);
+      choices.sort(() => Math.random() - 0.5); // shuffle
+
+      choices.forEach(val => {
+        const btn = document.createElement('button');
+        btn.className = 'change-btn';
+        btn.innerText = `Rp${val.toLocaleString('id-ID')}`;
+        btn.addEventListener('click', () => handleSelectChange(val, exactChange));
+        optionsBox.appendChild(btn);
+      });
+
+      document.getElementById('payment-modal').classList.add('active');
+    });
+
+    function handleSelectChange(chosen, exact) {
+      document.getElementById('payment-modal').classList.remove('active');
+      gameState.customersServed++;
+
+      if (chosen === exact) {
+        audio.success();
+
+        // 1. Increase Reputation (+0.15, max 5.0)
+        gameState.reputation = Math.min(5.0, Number((gameState.reputation + 0.15).toFixed(2)));
+        gameState.comboStreak++;
+
+        // 2. Calculate Random Tip (Rp500 - Rp2.000) boosted by Combo Streak
+        const baseTip = Math.floor((500 + Math.random() * 1500) / 100) * 100;
+        const multiplier = gameState.comboStreak > 1 ? (1 + Math.min(2.0, (gameState.comboStreak - 1) * 0.25)) : 1;
+        const tip = Math.round((baseTip * multiplier) / 100) * 100;
+
+        gameState.correctTransactions++;
+        const earnedThis = gameState.currentBillTotal + tip;
+        gameState.totalEarned += earnedThis;
+        gameState.playerSavings += earnedThis;
+        savePersistentData();
+
+        updateReputationUI();
+        document.getElementById('hud-money').innerText = `Rp${gameState.totalEarned.toLocaleString('id-ID')}`;
+        document.getElementById('hud-customer-count').innerText = `${gameState.customersServed} orang`;
+
+        // Combo Milestones audio & toast
+        if (gameState.comboStreak >= 3 && (gameState.comboStreak === 3 || gameState.comboStreak === 5 || gameState.comboStreak === 10 || gameState.comboStreak % 5 === 0)) {
+          audio.combo();
+          showToast(`🔥 COMBO x${gameState.comboStreak}! Pelanggan sangat kagum! +Tip Rp${tip.toLocaleString('id-ID')} 💖`);
+        } else {
+          showToast(`🎉 Kembalian Tepat! +Tip Rp${tip.toLocaleString('id-ID')}` + (gameState.comboStreak >= 2 ? ` (Combo x${gameState.comboStreak} 🔥)` : ' 💖'));
+        }
+
+        // Customer Happy Jump Animation
+        animateCustomerHappy(() => {
+          animateCustomerExit();
+        });
+      } else {
+        audio.error();
+
+        // Decrease Reputation (-0.25, min 1.0) & reset streak
+        gameState.reputation = Math.max(1.0, Number((gameState.reputation - 0.25).toFixed(2)));
+        gameState.comboStreak = 0;
+
+        gameState.wrongTransactions++;
+        const earnedPenalty = Math.max(0, gameState.currentBillTotal - 2000);
+        gameState.totalEarned += earnedPenalty;
+        gameState.playerSavings += earnedPenalty;
+        savePersistentData();
+
+        updateReputationUI();
+        document.getElementById('hud-money').innerText = `Rp${gameState.totalEarned.toLocaleString('id-ID')}`;
+        document.getElementById('hud-customer-count').innerText = `${gameState.customersServed} orang`;
+
+        showToast(`❌ Kembalian Kurang Tepat! Seharusnya Rp${exact.toLocaleString('id-ID')} (Tidak dapat tip)`, true);
+        animateCustomerExit();
+      }
+    }
+
+    function animateCustomerHappy(onDone) {
+      if (!customerModel) return onDone();
+      let jumps = 0;
+      function jump() {
+        jumps++;
+        customerModel.position.y = 0.25;
+        setTimeout(() => {
+          customerModel.position.y = 0;
+          if (jumps < 2) setTimeout(jump, 120);
+          else onDone();
+        }, 120);
+      }
+      jump();
+    }
+
+    function animateCustomerExit() {
+      gameState.isCustomerWalking = true;
+      const startPos = { x: customerModel.position.x, z: customerModel.position.z };
+      const exitPos = { x: 6.2, z: 2.2 };
+      const startTime = performance.now();
+      const duration = 2000;
+
+      function exitAnim(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        customerModel.position.x = startPos.x + (exitPos.x - startPos.x) * progress;
+        customerModel.position.z = startPos.z + (exitPos.z - startPos.z) * progress;
+        customerModel.rotation.y = Math.PI / 2;
+
+        const swing = Math.sin(progress * Math.PI * 8) * 0.3;
+        if (customerModel.userData.legs) {
+          customerModel.userData.legs[0].rotation.x = swing;
+          customerModel.userData.legs[1].rotation.x = -swing;
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(exitAnim);
+        } else {
+          gameState.isCustomerWalking = false;
+          gameplaySceneGroup.remove(customerModel);
+          customerModel = null;
+          // Spawn next customer automatically if shift is still active and before 19:00
+          setTimeout(() => {
+            if (gameState.shiftActive && gameState.gameMinutes < 19 * 60) {
+              spawnNextCustomer();
+            } else if (gameState.shiftActive && gameState.gameMinutes >= 19 * 60) {
+              endShift();
+            }
+          }, 600);
+        }
+      }
+      requestAnimationFrame(exitAnim);
+    }
+
+    function showDayResults() {
+      switchScreen('result');
+      audio.success();
+      document.getElementById('res-total-money').innerText = `Rp${gameState.totalEarned.toLocaleString('id-ID')}`;
+      const resSavingsEl = document.getElementById('res-savings-money');
+      if (resSavingsEl) resSavingsEl.innerText = `Rp${gameState.playerSavings.toLocaleString('id-ID')}`;
+      document.getElementById('res-total-customers').innerText = `${gameState.customersServed} orang`;
+      document.getElementById('res-correct-trans').innerText = `${gameState.correctTransactions}`;
+      document.getElementById('res-wrong-trans').innerText = `${gameState.wrongTransactions}`;
+      
+      const total = gameState.customersServed;
+      const ratio = total > 0 ? (gameState.correctTransactions / total) : 0;
+      const stars = (total > 0 && ratio >= 0.8) ? '⭐⭐⭐' : (total > 0 && ratio >= 0.4) ? '⭐⭐' : '⭐';
+      document.getElementById('result-stars').innerText = stars;
+    }
+
+    /* =========================================================================
+       DOM BUTTON EVENTS & DRESS-UP CONTROLS SETUP
+       ========================================================================= */
+    document.getElementById('btn-menu-play').addEventListener('click', () => {
+      audio.click();
+      switchScreen('select');
+    });
+
+    document.getElementById('btn-pick-girl').addEventListener('click', () => {
+      audio.click();
+      gameState.playerGender = 'girl';
+      setupDressupUI();
+      switchScreen('dressup');
+    });
+
+    document.getElementById('btn-pick-boy').addEventListener('click', () => {
+      audio.click();
+      gameState.playerGender = 'boy';
+      setupDressupUI();
+      switchScreen('dressup');
+    });
+
+    document.getElementById('btn-dressup-back').addEventListener('click', () => {
+      audio.click();
+      switchScreen('select');
+    });
+
+    document.getElementById('btn-dressup-start').addEventListener('click', () => {
+      audio.click();
+      const val = document.getElementById('input-cashier-name').value.trim();
+      gameState.playerName = val || (gameState.playerGender === 'girl' ? 'Chibi Mei' : 'Chibi Leo');
+      switchScreen('gameplay');
+    });
+
+    document.getElementById('btn-reset-cam').addEventListener('click', () => {
+      audio.click();
+      resetGameplayCamera();
+    });
+
+    document.getElementById('btn-res-replay').addEventListener('click', () => {
+      audio.click();
+      switchScreen('gameplay');
+    });
+
+    document.getElementById('btn-res-dress').addEventListener('click', () => {
+      audio.click();
+      switchScreen('dressup');
+    });
+
+    document.getElementById('btn-res-char').addEventListener('click', () => {
+      audio.click();
+      switchScreen('select');
+    });
+
+    const btnMenuUpg = document.getElementById('btn-menu-upgrade');
+    if (btnMenuUpg) btnMenuUpg.addEventListener('click', openUpgradeModal);
+
+    const btnResUpg = document.getElementById('btn-res-upgrade');
+    if (btnResUpg) btnResUpg.addEventListener('click', openUpgradeModal);
+
+    const btnCloseUpg = document.getElementById('btn-close-upgrade');
+    if (btnCloseUpg) btnCloseUpg.addEventListener('click', closeUpgradeModal);
+
+    function setupDressupUI() {
+      const isGirl = gameState.playerGender === 'girl';
+      document.getElementById('input-cashier-name').value = isGirl ? 'Chibi Mei' : 'Chibi Ken';
+
+      // 1. Skin Tones
+      const skinBox = document.getElementById('skin-options');
+      skinBox.innerHTML = '';
+      ['fair', 'peach', 'honey'].forEach(key => {
+        const dot = document.createElement('div');
+        dot.className = `color-dot ${gameState.playerSkin === key ? 'active' : ''}`;
+        dot.style.background = '#' + SKIN_COLORS[key].toString(16);
+        dot.addEventListener('click', () => {
+          gameState.playerSkin = key;
+          setupDressupUI();
+          updateDressupModel();
+        });
+        skinBox.appendChild(dot);
+      });
+
+      // 2. Hair Styles
+      const hairStyles = isGirl ? ['Panjang Berlapis', 'Ponytail', 'Bob Pendek'] : ['Pendek Rapi', 'Spiky Halus', 'Klimis'];
+      const hairBox = document.getElementById('hair-style-options');
+      hairBox.innerHTML = '';
+      hairStyles.forEach((name, idx) => {
+        const chip = document.createElement('div');
+        chip.className = `opt-chip ${gameState.playerHairStyle === idx ? 'active' : ''}`;
+        chip.innerText = name;
+        chip.addEventListener('click', () => {
+          gameState.playerHairStyle = idx;
+          setupDressupUI();
+          updateDressupModel();
+        });
+        hairBox.appendChild(chip);
+      });
+
+      // 3. Hair Colors
+      const hairCols = isGirl ? ['pink', 'brown', 'black', 'blonde'] : ['brown', 'black', 'blonde'];
+      const hairColBox = document.getElementById('hair-color-options');
+      hairColBox.innerHTML = '';
+      hairCols.forEach(col => {
+        const dot = document.createElement('div');
+        dot.className = `color-dot ${gameState.playerHairColor === col ? 'active' : ''}`;
+        dot.style.background = '#' + HAIR_COLORS[col].toString(16);
+        dot.addEventListener('click', () => {
+          gameState.playerHairColor = col;
+          setupDressupUI();
+          updateDressupModel();
+        });
+        hairColBox.appendChild(dot);
+      });
+
+      // 4. Outfits
+      const outfits = isGirl ? ['Pink Kasir', 'Biru Kasir', 'Kuning Kasir'] : ['Biru Kasir', 'Hijau Kasir', 'Abu Kasir'];
+      const outfitBox = document.getElementById('outfit-options');
+      outfitBox.innerHTML = '';
+      outfits.forEach((name, idx) => {
+        const chip = document.createElement('div');
+        chip.className = `opt-chip ${gameState.playerOutfit === idx ? 'active' : ''}`;
+        chip.innerText = name;
+        chip.addEventListener('click', () => {
+          gameState.playerOutfit = idx;
+          setupDressupUI();
+          updateDressupModel();
+        });
+        outfitBox.appendChild(chip);
+      });
+
+      // 5. Accessories
+      const accessories = isGirl ? ['Tanpa Aksesori', 'Topi Kasir', 'Bando Pita'] : ['Tanpa Aksesori', 'Topi Kasir', 'Kacamata'];
+      const accBox = document.getElementById('acc-options');
+      accBox.innerHTML = '';
+      accessories.forEach((name, idx) => {
+        const chip = document.createElement('div');
+        chip.className = `opt-chip ${gameState.playerAccessory === idx ? 'active' : ''}`;
+        chip.innerText = name;
+        chip.addEventListener('click', () => {
+          gameState.playerAccessory = idx;
+          setupDressupUI();
+          updateDressupModel();
+        });
+        accBox.appendChild(chip);
+      });
+    }
+
+    /* =========================================================================
+       INITIALIZATION & MAIN ANIMATION LOOP
+       ========================================================================= */
+    buildMenuScene();
+    buildSelectScene();
+    buildDressupScene();
+    buildGameplaySupermarket();
+    switchScreen('menu');
+
+    let clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = Math.min(clock.getDelta(), 0.1);
+      const time = clock.getElapsedTime();
+
+      // Shift clock advancement (08:00 to 19:00)
+      if (gameState.currentScreen === 'gameplay' && gameState.shiftActive) {
+        gameState.gameMinutes += delta * 3.5;
+        if (gameState.gameMinutes >= 19 * 60) {
+          gameState.gameMinutes = 19 * 60;
+          updateClockUI();
+          endShift();
+        } else {
+          updateClockUI();
+        }
+      }
+
+      // Ambient animations on Menu Scene
+      if (gameState.currentScreen === 'menu') {
+        // Soft cloud drifting
+        if (menuSceneGroup.userData.clouds) {
+          menuSceneGroup.userData.clouds.position.x = Math.sin(time * 0.2) * 0.8;
+        }
+        // Sliding doors open-close loop
+        if (menuSceneGroup.userData.doors) {
+          const doorOffset = (Math.sin(time * 1.2) + 1) * 0.45;
+          menuSceneGroup.userData.doors.left.position.x = -0.6 - doorOffset;
+          menuSceneGroup.userData.doors.right.position.x = 0.6 + doorOffset;
+        }
+        // Mascot cute waving animation
+        if (menuSceneGroup.userData.mascot && menuSceneGroup.userData.mascot.userData.arms) {
+          menuSceneGroup.userData.mascot.userData.arms[1].rotation.z = -1.8 + Math.sin(time * 5) * 0.3;
+          menuSceneGroup.userData.mascot.position.y = Math.sin(time * 2) * 0.04;
+        }
+      }
+
+      // Character Select Scene auto-rotation
+      if (gameState.currentScreen === 'select') {
+        if (selectGirlChar) selectGirlChar.rotation.y = time * 0.5;
+        if (selectBoyChar) selectBoyChar.rotation.y = -time * 0.5;
+      }
+
+      // Dressup Preview Scene auto-rotation
+      if (gameState.currentScreen === 'dressup' && dressupPreviewChar) {
+        dressupPreviewChar.rotation.y = time * 0.6;
+        dressupPreviewChar.position.y = 0.25 + Math.sin(time * 3) * 0.03;
+      }
+
+      // Cashier Idle animation during gameplay
+      if (gameState.currentScreen === 'gameplay' && playerCashierModel) {
+        playerCashierModel.position.y = Math.sin(time * 2) * 0.03;
+        if (playerCashierModel.userData.headGroup) {
+          playerCashierModel.userData.headGroup.rotation.y = Math.sin(time * 1.5) * 0.12;
+        }
+      }
+
+      // Customer Idle breathing while waiting at counter
+      if (gameState.currentScreen === 'gameplay' && customerModel && !gameState.isCustomerWalking) {
+        customerModel.position.y = Math.sin(time * 2.8) * 0.015;
+        if (customerModel.userData.headGroup) {
+          customerModel.userData.headGroup.rotation.y = Math.sin(time * 1.4) * 0.08;
+        }
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Handle Window Resizing
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
